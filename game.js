@@ -117,6 +117,7 @@ const outageImages = {
   fireball: new Image(),
 };
 const supportImages = {
+  sky: new Image(),
   goodCloud: new Image(),
   groundTransition: new Image(),
 };
@@ -128,6 +129,7 @@ bugImages.alive.src = "assets/bug-walker-sprite.png";
 bugImages.dead.src = "assets/bug-walker-dead.png";
 outageImages.cloud.src = "assets/outage-cloud.png";
 outageImages.fireball.src = "assets/fireball-sprite.png";
+supportImages.sky.src = "assets/bg-sky.png";
 supportImages.goodCloud.src = "assets/good-cloud.png";
 supportImages.groundTransition.src = "assets/ground-transition.png";
 
@@ -1160,6 +1162,12 @@ function stompBug(bug, rect) {
 }
 
 function drawBackdropBase() {
+  const skyImage = supportImages.sky;
+  if (skyImage.complete && skyImage.naturalWidth > 0) {
+    ctx.drawImage(skyImage, 0, 0, canvas.width, canvas.height);
+    return;
+  }
+
   const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   skyGradient.addColorStop(0, "#dcecff");
   skyGradient.addColorStop(0.55, "#f5eddc");
