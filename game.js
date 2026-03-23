@@ -41,6 +41,22 @@ const playerFrames = {
 };
 const spriteFrameWidth = 32;
 const spriteFrameHeight = 32;
+const defaultDeliveryOptions = [
+  "Client Migration",
+  "Data Migration",
+  "Payments Readiness",
+  "Training Materials",
+];
+const configuredDeliveryOptions =
+  Array.isArray(window.DELIVERY_OPTIONS) && window.DELIVERY_OPTIONS.length > 0
+    ? window.DELIVERY_OPTIONS.filter(
+        (item) => typeof item === "string" && item.trim().length > 0
+      )
+    : [];
+const deliveryOptions =
+  configuredDeliveryOptions.length > 0
+    ? configuredDeliveryOptions
+    : defaultDeliveryOptions;
 
 const backgroundLayers = [
   {
@@ -123,6 +139,25 @@ function getTileRect(columnIndex, rowIndex) {
   };
 }
 
+function getCellType(cell) {
+  if (!cell) {
+    return null;
+  }
+
+  return typeof cell === "string" ? cell : cell.type;
+}
+
+function randomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function createObstacleCell() {
+  return {
+    type: "obstacle",
+    label: randomItem(deliveryOptions),
+  };
+}
+
 function createEmptyColumn() {
   return Array.from({ length: WORLD_ROWS }, (_, row) => {
     if (row === groundRow()) {
@@ -142,7 +177,7 @@ function buildInitialWorld() {
   for (let index = 0; index < WORLD_COLUMNS + 4; index += 1) {
     const column = createEmptyColumn();
     if (index > 10 && state.nextObstacleInTiles <= 0) {
-      column[groundRow() - 1] = "obstacle";
+      column[groundRow() - 1] = createObstacleCell();
       state.nextObstacleInTiles = randomInt(MIN_OBSTACLE_GAP, MAX_OBSTACLE_GAP);
     } else {
       state.nextObstacleInTiles -= 1;
@@ -188,7 +223,7 @@ function randomInt(min, max) {
 function spawnColumn() {
   const column = createEmptyColumn();
   if (state.nextObstacleInTiles <= 0) {
-    column[groundRow() - 1] = "obstacle";
+    column[groundRow() - 1] = createObstacleCell();
     state.nextObstacleInTiles = randomInt(MIN_OBSTACLE_GAP, MAX_OBSTACLE_GAP);
   } else {
     state.nextObstacleInTiles -= 1;
@@ -297,7 +332,7 @@ function detectCollision() {
   for (let col = 0; col < state.columns.length; col += 1) {
     const column = state.columns[col];
     for (let row = 0; row < column.length; row += 1) {
-      if (column[row] !== "obstacle") {
+      if (getCellType(column[row]) !== "obstacle") {
         continue;
       }
 
@@ -319,6 +354,10 @@ function detectCollision() {
   }
 
   return false;
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function drawBackdropBase() {
@@ -388,7 +427,7 @@ function drawTiles() {
   for (let col = 0; col < state.columns.length; col += 1) {
     const column = state.columns[col];
     for (let row = 0; row < column.length; row += 1) {
-      const tileType = column[row];
+      const tileType = getCellType(column[row]);
       if (!tileType) {
         continue;
       }
@@ -408,6 +447,134 @@ function drawTiles() {
       }
     }
   }
+}
+
+function fitBubbleLines(text, maxWidth, maxLines) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const lines = [];
+  let currentLine = "";
+
+  function trimToWidth(value, suffix = "") {
+    let candidate = value;
+    while (candidate && ctx.measureText(candidate + suffix).width > maxWidth) {
+      candidate = candidate.slice(0, -1);
+    }
+    return candidate + suffix;
+  }
+
+  for (const word of words) {
+    const candidate = currentLine ? `${currentLine} ${word}` : word;
+    if (ctx.measureText(candidate).width <= maxWidth) {
+      currentLine = candidate;
+      continue;
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+      currentLine = "";
+      if (lines.length === maxLines) {
+        break;
+      }
+    }
+
+    if (ctx.measureText(word).width <= maxWidth) {
+      currentLine = word;
+      continue;
+    }
+
+    currentLine = trimToWidth(word, "...");
+  }
+
+  if (currentLine && lines.length < maxLines) {
+    lines.push(currentLine);
+  }
+
+  if (lines.length === 0) {
+    lines.push("Delivery");
+  }
+
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+  }
+
+  if (words.length > 0 && lines.length === maxLines) {
+    const joined = lines.join(" ");
+    if (joined.replace(/\.\.\.$/, "") !== text.trim()) {
+      lines[maxLines - 1] = trimToWidth(lines[maxLines - 1].replace(/\.\.\.$/, ""), "...");
+    }
+  }
+
+  return lines;
+}
+
+function drawObstacleBubbles() {
+  ctx.save();
+  const fontSize = 20;
+  const lineHeight = 22;
+  const paddingX = 22;
+  const paddingY = 14;
+  const maxTextWidth = 252;
+  ctx.font = `700 ${fontSize}px Trebuchet MS`;
+  ctx.textBaseline = "top";
+  ctx.textAlign = "left";
+
+  for (let col = 0; col < state.columns.length; col += 1) {
+    const column = state.columns[col];
+    for (let row = 0; row < column.length; row += 1) {
+      const cell = column[row];
+      if (getCellType(cell) !== "obstacle") {
+        continue;
+      }
+
+      const tile = getTileRect(col, row);
+      if (tile.x + tile.width < 0 || tile.x > canvas.width) {
+        continue;
+      }
+
+      const lines = fitBubbleLines(cell.label || "Delivery", maxTextWidth, 3);
+      const contentWidth = lines.reduce(
+        (max, line) => Math.max(max, ctx.measureText(line).width),
+        116
+      );
+      const bubbleWidth = Math.max(152, contentWidth + paddingX * 2);
+      const bubbleHeight = lines.length * lineHeight + paddingY * 2;
+      const anchorX = tile.x + tile.width / 2;
+      const bubbleX = clamp(
+        anchorX - bubbleWidth / 2,
+        8,
+        canvas.width - bubbleWidth - 8
+      );
+      const bubbleY = Math.max(8, tile.y - bubbleHeight - 18);
+      const tailX = clamp(anchorX, bubbleX + 18, bubbleX + bubbleWidth - 18);
+
+      ctx.fillStyle = "rgba(255, 251, 243, 0.96)";
+      drawRoundedRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 12);
+      ctx.fill();
+
+      ctx.strokeStyle = "#4c443a";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255, 251, 243, 0.96)";
+      ctx.beginPath();
+      ctx.moveTo(tailX - 12, bubbleY + bubbleHeight - 2);
+      ctx.lineTo(tailX + 12, bubbleY + bubbleHeight - 2);
+      ctx.lineTo(tailX, bubbleY + bubbleHeight + 16);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#4c443a";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#2b241d";
+      lines.forEach((line, index) => {
+        ctx.fillText(line, bubbleX + paddingX, bubbleY + paddingY + index * lineHeight);
+      });
+    }
+  }
+
+  ctx.restore();
 }
 
 function drawPlayer() {
@@ -450,6 +617,7 @@ function drawPlayer() {
 }
 
 function drawGoalMarker() {
+  ctx.save();
   const remaining = Math.max(0, TARGET_DISTANCE - state.distance);
   const markerRatio = Math.min(1, state.distance / TARGET_DISTANCE);
   const barWidth = canvas.width * 0.24;
@@ -474,12 +642,14 @@ function drawGoalMarker() {
     barX + barWidth,
     barY + 36
   );
+  ctx.restore();
 }
 
 function draw() {
   ctx.imageSmoothingEnabled = false;
   drawBackdrop();
   drawTiles();
+  drawObstacleBubbles();
   drawPlayer();
   drawGoalMarker();
 }
