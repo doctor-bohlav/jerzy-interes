@@ -587,32 +587,128 @@ func drawBugSingle() -> Canvas {
   return canvas
 }
 
+func thickLine(canvas: inout Canvas, _ startX: Int, _ startY: Int, _ endX: Int, _ endY: Int, _ color: Color, thickness: Int = 2) {
+  for offsetX in 0..<thickness {
+    for offsetY in 0..<thickness {
+      canvas.line(startX + offsetX, startY + offsetY, endX + offsetX, endY + offsetY, color)
+    }
+  }
+}
+
+func drawSideProfileHead(canvas: inout Canvas, originX: Int, originY: Int) {
+  canvas.fillRect(originX + 1, originY + 2, 4, 6, skin)
+  canvas.fillRect(originX + 5, originY + 3, 2, 3, skin)
+  canvas.fillRect(originX + 4, originY + 6, 2, 1, skin)
+  canvas.fillRect(originX, originY + 1, 4, 2, hair)
+  canvas.fillRect(originX, originY + 3, 1, 4, hair)
+  canvas.fillRect(originX + 1, originY, 3, 1, hair)
+  canvas.line(originX + 1, originY + 1, originX + 5, originY + 1, ink)
+  canvas.line(originX, originY + 2, originX, originY + 6, ink)
+  canvas.line(originX + 5, originY + 2, originX + 6, originY + 3, ink)
+  canvas.line(originX + 6, originY + 4, originX + 5, originY + 6, ink)
+  canvas.line(originX + 4, originY + 7, originX + 2, originY + 8, ink)
+  canvas.setPixel(originX + 5, originY + 4, ink)
+}
+
+func drawSideProfileTorso(canvas: inout Canvas, originX: Int, originY: Int, leaning: Int = 0) {
+  canvas.fillRect(originX, originY + 1, 5, 10, tealDark)
+  canvas.fillRect(originX + 1, originY + 1, 4, 9, cream)
+  canvas.fillRect(originX + 4, originY + 2, 1, 7, teal)
+  canvas.fillRect(originX + 1, originY, 3, 2, skin)
+  canvas.line(originX, originY + 1, originX + 3 + leaning, originY, ink)
+  canvas.line(originX, originY + 2, originX, originY + 10, ink)
+  canvas.line(originX + 5, originY + 2, originX + 5, originY + 9, ink)
+  canvas.line(originX + 1, originY + 11, originX + 4, originY + 11, ink)
+  canvas.setPixel(originX + 2, originY + 4, tealLight)
+  canvas.setPixel(originX + 2, originY + 7, tealLight)
+}
+
+func drawArm(canvas: inout Canvas, shoulder: (Int, Int), elbow: (Int, Int), hand: (Int, Int), sleeve: Color, forearm: Color) {
+  thickLine(canvas: &canvas, shoulder.0, shoulder.1, elbow.0, elbow.1, sleeve)
+  thickLine(canvas: &canvas, elbow.0, elbow.1, hand.0, hand.1, forearm)
+}
+
+func drawLeg(canvas: inout Canvas, hip: (Int, Int), knee: (Int, Int), foot: (Int, Int), color: Color, shoe: Color) {
+  thickLine(canvas: &canvas, hip.0, hip.1, knee.0, knee.1, color)
+  thickLine(canvas: &canvas, knee.0, knee.1, foot.0, foot.1, color)
+  canvas.fillRect(foot.0 - 1, foot.1 + 1, 4, 2, shoe)
+}
+
+func offsetJoint(_ joint: (Int, Int), by xOffset: Int) -> (Int, Int) {
+  (joint.0 + xOffset, joint.1)
+}
+
 func drawRunnerSpriteSheet() -> Canvas {
   var canvas = Canvas(width: 128, height: 32)
 
-  let armFrames = [
-    (leftX: 10, leftY: 14, rightX: 21, rightY: 13, leftLegX: 11, rightLegX: 18),
-    (leftX: 9, leftY: 13, rightX: 22, rightY: 14, leftLegX: 12, rightLegX: 17),
-    (leftX: 10, leftY: 13, rightX: 21, rightY: 15, leftLegX: 10, rightLegX: 19),
-    (leftX: 10, leftY: 12, rightX: 21, rightY: 12, leftLegX: 12, rightLegX: 18),
+  let poses = [
+    (
+      headX: 11, headY: 5, torsoX: 12, torsoY: 13,
+      backArm: ((13, 16), (11, 18), (10, 21)),
+      frontArm: ((17, 16), (19, 13), (21, 10)),
+      backLeg: ((14, 23), (12, 26), (10, 28)),
+      frontLeg: ((17, 23), (19, 26), (21, 28))
+    ),
+    (
+      headX: 11, headY: 5, torsoX: 12, torsoY: 13,
+      backArm: ((13, 16), (11, 14), (10, 11)),
+      frontArm: ((17, 16), (19, 18), (20, 22)),
+      backLeg: ((14, 23), (14, 26), (13, 28)),
+      frontLeg: ((17, 23), (18, 26), (19, 28))
+    ),
+    (
+      headX: 11, headY: 5, torsoX: 12, torsoY: 13,
+      backArm: ((13, 16), (11, 13), (10, 10)),
+      frontArm: ((17, 16), (19, 19), (21, 23)),
+      backLeg: ((14, 23), (16, 26), (18, 28)),
+      frontLeg: ((17, 23), (14, 26), (12, 28))
+    ),
+    (
+      headX: 11, headY: 4, torsoX: 12, torsoY: 12,
+      backArm: ((13, 15), (11, 16), (10, 18)),
+      frontArm: ((17, 15), (19, 14), (21, 13)),
+      backLeg: ((14, 22), (13, 25), (12, 27)),
+      frontLeg: ((17, 22), (19, 24), (20, 26))
+    ),
   ]
 
   for frame in 0..<4 {
     let offsetX = frame * 32
-    let pose = armFrames[frame]
-    canvas.fillRect(offsetX + 12, 5, 8, 8, skin)
-    canvas.strokeRect(offsetX + 12, 5, 8, 8, ink)
-    canvas.fillRect(offsetX + 12, 4, 8, 3, hair)
-    canvas.fillRect(offsetX + 13, 14, 7, 9, cream)
-    canvas.strokeRect(offsetX + 13, 14, 7, 9, ink)
-    canvas.fillRect(offsetX + 16, 15, 1, 8, teal)
-    canvas.fillRect(offsetX + pose.leftX, pose.leftY, 2, 7, skin)
-    canvas.fillRect(offsetX + pose.rightX, pose.rightY, 2, 7, skin)
-    canvas.fillRect(offsetX + pose.leftLegX, 23, 3, frame == 3 ? 5 : 7, clothDark)
-    canvas.fillRect(offsetX + pose.rightLegX, 23, 3, frame == 3 ? 5 : 7, clothDark)
-    canvas.fillRect(offsetX + pose.leftLegX - 1, 29, 4, 2, ink)
-    canvas.fillRect(offsetX + pose.rightLegX - 1, 29, 4, 2, ink)
-    canvas.fillRect(offsetX + 15, 8, 1, 1, ink)
+    let pose = poses[frame]
+    drawSideProfileHead(canvas: &canvas, originX: offsetX + pose.headX, originY: pose.headY)
+    drawArm(
+      canvas: &canvas,
+      shoulder: offsetJoint(pose.backArm.0, by: offsetX),
+      elbow: offsetJoint(pose.backArm.1, by: offsetX),
+      hand: offsetJoint(pose.backArm.2, by: offsetX),
+      sleeve: clothDark,
+      forearm: clothDark
+    )
+    drawSideProfileTorso(canvas: &canvas, originX: offsetX + pose.torsoX, originY: pose.torsoY)
+    drawArm(
+      canvas: &canvas,
+      shoulder: offsetJoint(pose.frontArm.0, by: offsetX),
+      elbow: offsetJoint(pose.frontArm.1, by: offsetX),
+      hand: offsetJoint(pose.frontArm.2, by: offsetX),
+      sleeve: tealDark,
+      forearm: skin
+    )
+    drawLeg(
+      canvas: &canvas,
+      hip: offsetJoint(pose.backLeg.0, by: offsetX),
+      knee: offsetJoint(pose.backLeg.1, by: offsetX),
+      foot: offsetJoint(pose.backLeg.2, by: offsetX),
+      color: clothDark,
+      shoe: ink
+    )
+    drawLeg(
+      canvas: &canvas,
+      hip: offsetJoint(pose.frontLeg.0, by: offsetX),
+      knee: offsetJoint(pose.frontLeg.1, by: offsetX),
+      foot: offsetJoint(pose.frontLeg.2, by: offsetX),
+      color: cloth,
+      shoe: ink
+    )
   }
 
   return canvas
@@ -620,23 +716,74 @@ func drawRunnerSpriteSheet() -> Canvas {
 
 func drawDeathSpriteSheet() -> Canvas {
   var canvas = Canvas(width: 128, height: 32)
-  let bodyFrames = [
-    (x: 13, y: 13, w: 7, h: 10, headX: 12, headY: 5),
-    (x: 12, y: 15, w: 8, h: 8, headX: 10, headY: 7),
-    (x: 10, y: 18, w: 10, h: 6, headX: 8, headY: 12),
-    (x: 7, y: 22, w: 14, h: 4, headX: 20, headY: 18),
+  let poses = [
+    (
+      headX: 11, headY: 5, torsoX: 12, torsoY: 13,
+      backArm: ((13, 16), (11, 18), (9, 21)),
+      frontArm: ((17, 16), (19, 18), (20, 22)),
+      backLeg: ((14, 23), (14, 26), (13, 28)),
+      frontLeg: ((17, 23), (18, 26), (19, 28))
+    ),
+    (
+      headX: 10, headY: 7, torsoX: 11, torsoY: 15,
+      backArm: ((12, 17), (10, 19), (8, 22)),
+      frontArm: ((16, 17), (18, 19), (19, 22)),
+      backLeg: ((13, 24), (12, 27), (11, 29)),
+      frontLeg: ((16, 24), (17, 27), (18, 29))
+    ),
+    (
+      headX: 8, headY: 12, torsoX: 10, torsoY: 18,
+      backArm: ((11, 20), (9, 22), (7, 24)),
+      frontArm: ((15, 20), (17, 21), (19, 22)),
+      backLeg: ((12, 25), (10, 27), (8, 29)),
+      frontLeg: ((15, 25), (17, 26), (19, 27))
+    ),
+    (
+      headX: 18, headY: 18, torsoX: 8, torsoY: 21,
+      backArm: ((10, 23), (8, 24), (6, 24)),
+      frontArm: ((15, 23), (17, 24), (19, 24)),
+      backLeg: ((11, 25), (9, 26), (7, 27)),
+      frontLeg: ((14, 25), (16, 26), (18, 27))
+    ),
   ]
 
   for frame in 0..<4 {
     let offsetX = frame * 32
-    let body = bodyFrames[frame]
-    canvas.fillRect(offsetX + body.headX, body.headY, 8, 8, skin)
-    canvas.strokeRect(offsetX + body.headX, body.headY, 8, 8, ink)
-    canvas.fillRect(offsetX + body.headX, body.headY - 1, 8, 3, hair)
-    canvas.fillRect(offsetX + body.x, body.y, body.w, body.h, cream)
-    canvas.strokeRect(offsetX + body.x, body.y, body.w, body.h, ink)
-    canvas.fillRect(offsetX + body.x + body.w / 2, body.y + 1, 1, max(body.h - 2, 1), teal)
-    canvas.fillRect(offsetX + body.x - 1, body.y + body.h - 1, body.w + 2, 2, clothDark)
+    let pose = poses[frame]
+    drawSideProfileHead(canvas: &canvas, originX: offsetX + pose.headX, originY: pose.headY)
+    drawArm(
+      canvas: &canvas,
+      shoulder: offsetJoint(pose.backArm.0, by: offsetX),
+      elbow: offsetJoint(pose.backArm.1, by: offsetX),
+      hand: offsetJoint(pose.backArm.2, by: offsetX),
+      sleeve: clothDark,
+      forearm: clothDark
+    )
+    drawSideProfileTorso(canvas: &canvas, originX: offsetX + pose.torsoX, originY: pose.torsoY, leaning: frame >= 2 ? 1 : 0)
+    drawArm(
+      canvas: &canvas,
+      shoulder: offsetJoint(pose.frontArm.0, by: offsetX),
+      elbow: offsetJoint(pose.frontArm.1, by: offsetX),
+      hand: offsetJoint(pose.frontArm.2, by: offsetX),
+      sleeve: tealDark,
+      forearm: skin
+    )
+    drawLeg(
+      canvas: &canvas,
+      hip: offsetJoint(pose.backLeg.0, by: offsetX),
+      knee: offsetJoint(pose.backLeg.1, by: offsetX),
+      foot: offsetJoint(pose.backLeg.2, by: offsetX),
+      color: clothDark,
+      shoe: ink
+    )
+    drawLeg(
+      canvas: &canvas,
+      hip: offsetJoint(pose.frontLeg.0, by: offsetX),
+      knee: offsetJoint(pose.frontLeg.1, by: offsetX),
+      foot: offsetJoint(pose.frontLeg.2, by: offsetX),
+      color: cloth,
+      shoe: ink
+    )
   }
 
   return canvas
