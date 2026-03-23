@@ -1,4 +1,4 @@
-window.DELIVERY_OPTIONS = [
+[
   "Client Migration",
   "Payments Readiness",
   "Authentication Flow",
@@ -10,5 +10,5 @@ window.DELIVERY_OPTIONS = [
   "Cutover Planning",
   "Training Materials",
   "Compliance Sign-off",
-  "API Integration",
-];
+  "API Integration"
+]
