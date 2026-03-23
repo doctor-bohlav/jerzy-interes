@@ -1,0 +1,50 @@
+<svg width="256" height="64" viewBox="0 0 256 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="runner-base">
+      <ellipse cx="24" cy="55" rx="12" ry="4" fill="#000000" fill-opacity="0.12"/>
+      <path d="M32 11C32 15.4183 28.4183 19 24 19C19.5817 19 16 15.4183 16 11C16 6.58172 19.5817 3 24 3C28.4183 3 32 6.58172 32 11Z" fill="#0D3E39"/>
+      <path d="M16 24C16 19.5817 19.5817 16 24 16H28C34.6274 16 40 21.3726 40 28V40C40 42.7614 37.7614 45 35 45H21C18.2386 45 16 42.7614 16 40V24Z" fill="#126A62"/>
+      <path d="M24 19H28.5C33.7467 19 38 23.2533 38 28.5V37C38 39.7614 35.7614 42 33 42H25C22.2386 42 20 39.7614 20 37V23C20 20.7909 21.7909 19 24 19Z" fill="#159282"/>
+      <path d="M13 27C13 24.7909 14.7909 23 17 23H18V31H17C14.7909 31 13 29.2091 13 27Z" fill="#0D5851"/>
+      <circle cx="27.5" cy="10.5" r="1.7" fill="#E4FFF6"/>
+    </g>
+    <g id="frame-1">
+      <use href="#runner-base"/>
+      <path d="M22 45L16 57" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M30 45L35 57" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+    </g>
+    <g id="frame-2">
+      <use href="#runner-base"/>
+      <path d="M22 45L20 58" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M30 45L40 54" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+    </g>
+    <g id="frame-3">
+      <use href="#runner-base"/>
+      <path d="M22 45L13 53" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M30 45L28 58" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+    </g>
+    <g id="frame-jump">
+      <ellipse cx="24" cy="57" rx="10" ry="3" fill="#000000" fill-opacity="0.08"/>
+      <path d="M32 11C32 15.4183 28.4183 19 24 19C19.5817 19 16 15.4183 16 11C16 6.58172 19.5817 3 24 3C28.4183 3 32 6.58172 32 11Z" fill="#0D3E39"/>
+      <path d="M16 23C16 19.6863 18.6863 17 22 17H29C35.0751 17 40 21.9249 40 28V36C40 39.3137 37.3137 42 34 42H22C18.6863 42 16 39.3137 16 36V23Z" fill="#126A62"/>
+      <path d="M23 20H29C33.4183 20 37 23.5817 37 28V34C37 36.7614 34.7614 39 32 39H24C21.2386 39 19 36.7614 19 34V24C19 21.7909 20.7909 20 23 20Z" fill="#159282"/>
+      <path d="M18 46L12 36" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M28 45L37 36" stroke="#0A2C29" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M13 27C13 24.7909 14.7909 23 17 23H18V31H17C14.7909 31 13 29.2091 13 27Z" fill="#0D5851"/>
+      <circle cx="27.5" cy="10.5" r="1.7" fill="#E4FFF6"/>
+    </g>
+  </defs>
+
+  <g transform="translate(0 0)">
+    <use href="#frame-1"/>
+  </g>
+  <g transform="translate(64 0)">
+    <use href="#frame-2"/>
+  </g>
+  <g transform="translate(128 0)">
+    <use href="#frame-3"/>
+  </g>
+  <g transform="translate(192 0)">
+    <use href="#frame-jump"/>
+  </g>
+</svg>

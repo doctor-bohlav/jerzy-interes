@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>George Business Migration Run</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <section class="game-shell">
+        <header class="hud">
+          <div>
+            <p class="eyebrow">Migration Progress Runner</p>
+            <h1>IB George Business</h1>
+          </div>
+          <div class="stats">
+            <div class="stat-card">
+              <span class="stat-label">Migrated clients</span>
+              <strong id="distanceValue">0 / 19500</strong>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Progress</span>
+              <strong id="progressValue">0%</strong>
+            </div>
+          </div>
+        </header>
+
+        <section class="play-area">
+          <canvas
+            id="gameCanvas"
+            width="960"
+            height="540"
+            aria-label="Runner game where you jump over obstacles"
+          ></canvas>
+
+          <div class="overlay" id="overlay">
+            <div class="overlay-card">
+              <p class="overlay-kicker" id="overlayKicker">Tap or press Space</p>
+              <h2 id="overlayTitle">Start the migration run</h2>
+              <p id="overlayText">
+                Jump over blockers and help migrate 19,500 clients to the new
+                IB George Business.
+              </p>
+              <button id="actionButton" type="button">Start</button>
+            </div>
+          </div>
+        </section>
+
+        <footer class="controls">
+          <p>
+            Controls: <span>Spacebar</span> on desktop or <span>tap anywhere</span>
+            on mobile.
+          </p>
+        </footer>
+      </section>
+    </main>
+
+    <script src="game.js"></script>
+  </body>
+</html>

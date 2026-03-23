@@ -1,0 +1,212 @@
+:root {
+  --bg-top: #f4ede1;
+  --bg-bottom: #d9ebd7;
+  --panel: rgba(255, 252, 247, 0.82);
+  --panel-border: rgba(85, 76, 63, 0.14);
+  --text-main: #27211a;
+  --text-muted: #6a6154;
+  --accent: #0f766e;
+  --accent-strong: #0a5b55;
+  --shadow: rgba(39, 33, 26, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  font-family: "Trebuchet MS", "Avenir Next", sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.55), transparent 40%),
+    linear-gradient(180deg, var(--bg-top), var(--bg-bottom));
+}
+
+body {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.app {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 32px;
+}
+
+.game-shell {
+  width: min(100%, 1120px);
+  display: grid;
+  gap: 18px;
+}
+
+.hud,
+.controls {
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--panel-border);
+  border-radius: 22px;
+  box-shadow: 0 20px 50px var(--shadow);
+}
+
+.hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 22px;
+}
+
+.eyebrow {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.7rem);
+  line-height: 1;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.stat-card {
+  min-width: 160px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(15, 118, 110, 0.12);
+}
+
+.stat-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.stat-card strong {
+  font-size: 1.15rem;
+}
+
+.play-area {
+  position: relative;
+  overflow: hidden;
+  border-radius: 28px;
+  box-shadow: 0 24px 70px rgba(39, 33, 26, 0.18);
+  touch-action: manipulation;
+}
+
+#gameCanvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: min(74vh, 720px);
+  background:
+    linear-gradient(180deg, rgba(222, 238, 255, 0.92), rgba(244, 237, 225, 0.92));
+  touch-action: manipulation;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(33, 29, 23, 0.18);
+}
+
+.overlay[hidden] {
+  display: none;
+}
+
+.overlay-card {
+  width: min(100%, 420px);
+  padding: 24px;
+  border-radius: 24px;
+  background: rgba(255, 250, 243, 0.94);
+  text-align: center;
+  box-shadow: 0 26px 60px rgba(39, 33, 26, 0.22);
+}
+
+.overlay-kicker {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.78rem;
+}
+
+.overlay-card h2 {
+  margin: 0 0 10px;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.overlay-card p {
+  margin: 0 0 20px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 22px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: white;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.controls {
+  padding: 14px 18px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.controls p {
+  margin: 0;
+}
+
+.controls span {
+  color: var(--text-main);
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .app {
+    padding: 14px 10px 22px;
+  }
+
+  .hud {
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stats {
+    width: 100%;
+  }
+
+  .stat-card {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+
+  .overlay-card {
+    padding: 20px;
+  }
+}
