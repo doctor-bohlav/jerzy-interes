@@ -58,6 +58,7 @@ const FIREBALL_IMPACT_GROUND_CLEARANCE = TILE_SIZE * 0.72;
 const GROUND_TRANSITION_HEIGHT = TILE_SIZE;
 const GROUND_TRANSITION_OVERLAP = TILE_SIZE * 0.75;
 const PARALLAX_GAP_SCALE = 0.75;
+const HIGH_SCORE_STORAGE_KEY = "jerzy-interes-high-score";
 const GOOD_CLOUD_WIDTH = TILE_SIZE * 2.45;
 const GOOD_CLOUD_HEIGHT = TILE_SIZE * 1.22;
 const GOOD_CLOUD_VERTICAL_OFFSET = TILE_SIZE * 1.12;
@@ -94,6 +95,7 @@ const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const distanceValue = document.getElementById("distanceValue");
 const progressValue = document.getElementById("progressValue");
+const highScoreValue = document.getElementById("highScoreValue");
 const overlay = document.getElementById("overlay");
 const overlayKicker = document.getElementById("overlayKicker");
 const overlayTitle = document.getElementById("overlayTitle");
@@ -196,6 +198,44 @@ const backgroundLayers = [
   },
 ];
 const BASE_PARALLAX_BOTTOM_GAP = Math.min(...backgroundLayers.map((layer) => layer.bottomGap ?? 0));
+const obstaclePatterns = [
+  {
+    cells: [1],
+    minDifficulty: 0,
+    startWeight: 1.2,
+    endWeight: 0.45,
+  },
+  {
+    cells: [1, 0, 1],
+    minDifficulty: 0.08,
+    startWeight: 0.18,
+    endWeight: 0.95,
+  },
+  {
+    cells: [1, 1],
+    minDifficulty: 0.22,
+    startWeight: 0.08,
+    endWeight: 0.72,
+  },
+  {
+    cells: [1, 0, 1, 0, 1],
+    minDifficulty: 0.42,
+    startWeight: 0.02,
+    endWeight: 0.42,
+  },
+  {
+    cells: [1, 1, 0, 1],
+    minDifficulty: 0.5,
+    startWeight: 0.02,
+    endWeight: 0.5,
+  },
+  {
+    cells: [1, 0, 1, 1],
+    minDifficulty: 0.62,
+    startWeight: 0.01,
+    endWeight: 0.44,
+  },
+];
 
 for (const layer of backgroundLayers) {
   layer.image.src = layer.src;
@@ -212,6 +252,8 @@ const state = {
   nextWorldColumnIndex: 0,
   lastObstacleColumn: null,
   nextObstacleInTiles: 14,
+  pendingObstaclePattern: [],
+  highScore: 0,
   columns: [],
   bugs: [],
   outages: [],
@@ -259,8 +301,8 @@ function drawRoundedRect(x, y, width, height, radius) {
 
 function getTileRect(columnIndex, rowIndex) {
   return {
-    x: columnIndex * TILE_SIZE - state.offsetX,
-    y: worldTop() + rowIndex * TILE_SIZE,
+    x: Math.round(columnIndex * TILE_SIZE - state.offsetX),
+    y: Math.round(worldTop() + rowIndex * TILE_SIZE),
     width: TILE_SIZE,
     height: TILE_SIZE,
   };
@@ -337,7 +379,51 @@ function getObstacleGapRange(progress = getProgressRatio()) {
 
 function getRandomObstacleGapTiles(progress = getProgressRatio()) {
   const gapRange = getObstacleGapRange(progress);
-  return randomInt(gapRange.min, gapRange.max);
+  const difficulty = getDifficultyProgress(progress);
+  const widenedMin = Math.max(4, gapRange.min - (difficulty > 0.5 ? 1 : 0));
+  const widenedMax = gapRange.max + (difficulty < 0.38 ? 2 : 1);
+  let nextGap = randomInt(widenedMin, widenedMax);
+
+  if (Math.random() < lerp(0.12, 0.32, difficulty)) {
+    nextGap += randomInt(-2, 2);
+  }
+
+  return clamp(nextGap, widenedMin, widenedMax);
+}
+
+function getObstaclePatternWeight(pattern, difficulty) {
+  if (difficulty < pattern.minDifficulty) {
+    return 0;
+  }
+
+  const ramp = clamp((difficulty - pattern.minDifficulty) / Math.max(0.08, 1 - pattern.minDifficulty), 0, 1);
+  return lerp(pattern.startWeight, pattern.endWeight, ramp);
+}
+
+function chooseObstaclePattern(progress = getProgressRatio()) {
+  const difficulty = getDifficultyProgress(progress);
+  const weightedPatterns = obstaclePatterns
+    .map((pattern) => ({
+      pattern,
+      weight: getObstaclePatternWeight(pattern, difficulty),
+    }))
+    .filter((entry) => entry.weight > 0);
+
+  if (!weightedPatterns.length) {
+    return obstaclePatterns[0].cells.slice();
+  }
+
+  const totalWeight = weightedPatterns.reduce((sum, entry) => sum + entry.weight, 0);
+  let target = Math.random() * totalWeight;
+
+  for (const entry of weightedPatterns) {
+    target -= entry.weight;
+    if (target <= 0) {
+      return entry.pattern.cells.slice();
+    }
+  }
+
+  return weightedPatterns[weightedPatterns.length - 1].pattern.cells.slice();
 }
 
 function getOutageDropInterval(progress) {
@@ -438,13 +524,29 @@ function createEmptyColumn() {
 function createGeneratedColumn(worldColumnIndex) {
   const column = createEmptyColumn();
   const progress = getProgressRatio();
+
+  if (state.pendingObstaclePattern.length > 0) {
+    const nextPatternTile = state.pendingObstaclePattern.shift();
+    if (nextPatternTile) {
+      column[groundRow() - 1] = createObstacleCell();
+    }
+    return column;
+  }
+
   if (worldColumnIndex > 10 && state.nextObstacleInTiles <= 0) {
-    column[groundRow() - 1] = createObstacleCell();
+    const pattern = chooseObstaclePattern(progress);
+    const lastObstacleOffset = Math.max(
+      0,
+      pattern.reduce((lastIndex, cell, index) => (cell ? index : lastIndex), 0)
+    );
     const bug = createBugBetweenObstacles(state.lastObstacleColumn, worldColumnIndex, progress);
     if (bug) {
       state.bugs.push(bug);
     }
-    state.lastObstacleColumn = worldColumnIndex;
+
+    column[groundRow() - 1] = createObstacleCell();
+    state.lastObstacleColumn = worldColumnIndex + lastObstacleOffset;
+    state.pendingObstaclePattern = pattern.slice(1);
     state.nextObstacleInTiles = getRandomObstacleGapTiles(progress);
   } else {
     state.nextObstacleInTiles -= 1;
@@ -476,6 +578,7 @@ function resetGame() {
   state.nextWorldColumnIndex = 0;
   state.lastObstacleColumn = null;
   state.nextObstacleInTiles = getRandomObstacleGapTiles(0);
+  state.pendingObstaclePattern = [];
   state.outages = [];
   state.fireballs = [];
   state.goodClouds = [];
@@ -515,6 +618,36 @@ function randomInt(min, max) {
 
 function randomFloat(min, max) {
   return Math.random() * (max - min) + min;
+}
+
+function loadHighScore() {
+  try {
+    const rawHighScore = window.localStorage.getItem(HIGH_SCORE_STORAGE_KEY);
+    const parsedHighScore = Number.parseInt(rawHighScore ?? "", 10);
+    return Number.isFinite(parsedHighScore) && parsedHighScore > 0 ? parsedHighScore : 0;
+  } catch (error) {
+    console.warn("Unable to load saved high score.", error);
+    return 0;
+  }
+}
+
+function saveHighScore(score) {
+  try {
+    window.localStorage.setItem(HIGH_SCORE_STORAGE_KEY, String(score));
+  } catch (error) {
+    console.warn("Unable to save high score.", error);
+  }
+}
+
+function syncHighScore(distance = state.distance) {
+  const score = Math.max(0, Math.floor(distance));
+  if (score <= state.highScore) {
+    return false;
+  }
+
+  state.highScore = score;
+  saveHighScore(score);
+  return true;
 }
 
 async function loadDeliveryOptions() {
@@ -671,11 +804,13 @@ function failGame(cause = "generic") {
   const defeat = getDefeatConfig(cause);
   state.phase = "lost";
   state.player.deathStartedAt = performance.now();
+  syncHighScore();
+  updateHud();
   setOverlay({
     hidden: false,
     kicker: defeat.kicker,
     title: defeat.title,
-    text: `${defeat.summary}. You migrated ${Math.floor(state.distance).toLocaleString("en-US")} clients. Try again and push toward 19,500.`,
+    text: `${defeat.summary}. You migrated ${Math.floor(state.distance).toLocaleString("en-US")} clients. Best run: ${state.highScore.toLocaleString("en-US")}. Try again and push toward 19,500.`,
     button: "Restart",
   });
 }
@@ -683,12 +818,13 @@ function failGame(cause = "generic") {
 function winGame() {
   state.phase = "won";
   state.distance = TARGET_DISTANCE;
+  syncHighScore(TARGET_DISTANCE);
   updateHud();
   setOverlay({
     hidden: false,
     kicker: "Target reached",
     title: "Migration milestone completed",
-    text: "All 19,500 clients have made it to the new IB George Business. Run it again to improve your timing.",
+    text: `All 19,500 clients have made it to the new IB George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
     button: "Play again",
   });
 }
@@ -698,6 +834,7 @@ function updateHud() {
   const progress = Math.min((distance / TARGET_DISTANCE) * 100, 100);
   distanceValue.textContent = `${distance.toLocaleString("en-US")} / ${TARGET_DISTANCE.toLocaleString("en-US")}`;
   progressValue.textContent = `${progress.toFixed(progress >= 100 ? 0 : 1)}%`;
+  highScoreValue.textContent = state.highScore.toLocaleString("en-US");
 }
 
 function update(delta) {
@@ -707,6 +844,7 @@ function update(delta) {
 
   state.speed = Math.min(MAX_SPEED, START_SPEED + state.distance / SPEED_RAMP);
   state.distance += state.speed * delta * CLIENTS_PER_PIXEL;
+  syncHighScore();
   updateHud();
 
   state.player.previousY = state.player.y;
@@ -1040,7 +1178,7 @@ function drawRepeatingBackgroundLayer(layer) {
   const image = layer.image;
   const drawHeight = layer.height;
   const bottomGap = Math.max(0, (layer.bottomGap ?? 0) - BASE_PARALLAX_BOTTOM_GAP) * PARALLAX_GAP_SCALE;
-  const drawY = backgroundStartY() - bottomGap - drawHeight;
+  const drawY = groundSurfaceY() - bottomGap - drawHeight;
 
   if (!(image.complete && image.naturalWidth > 0)) {
     ctx.fillStyle = layer.fallback;
@@ -1068,7 +1206,7 @@ function drawParallaxLayers() {
 }
 
 function drawForegroundBackdropLayer() {
-  const backdropBaseY = backgroundStartY();
+  const backdropBaseY = groundSurfaceY();
   ctx.fillStyle = "rgba(15, 118, 110, 0.08)";
   ctx.beginPath();
   ctx.moveTo(0, backdropBaseY);
@@ -1185,8 +1323,11 @@ function drawTiles() {
 
       const tile = getTileRect(col, row);
       const image = tileImages[tileType];
+      const isGroundTile = tileType === "floorTop" || tileType === "floorBase";
+      const drawWidth = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
+      const drawHeight = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
       if (image.complete && image.naturalWidth > 0) {
-        ctx.drawImage(image, tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+        ctx.drawImage(image, tile.x, tile.y, drawWidth, drawHeight);
       } else {
         ctx.fillStyle =
           tileType === "obstacle"
@@ -1194,7 +1335,7 @@ function drawTiles() {
             : tileType === "floorTop"
               ? "#7ca95d"
               : "#587447";
-        ctx.fillRect(tile.x, tile.y, TILE_SIZE, TILE_SIZE);
+        ctx.fillRect(tile.x, tile.y, drawWidth, drawHeight);
       }
     }
   }
@@ -1815,6 +1956,7 @@ async function initializeGame() {
     loadOutageReasons(),
     loadClientFeedbackOptions(),
   ]);
+  state.highScore = loadHighScore();
   resetGame();
   requestAnimationFrame(loop);
 }
