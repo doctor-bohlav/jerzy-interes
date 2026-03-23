@@ -116,6 +116,8 @@ h1 {
   background:
     linear-gradient(180deg, rgba(222, 238, 255, 0.92), rgba(244, 237, 225, 0.92));
   touch-action: manipulation;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .overlay {

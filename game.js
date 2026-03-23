@@ -28,19 +28,50 @@ const tileImages = {
   obstacle: new Image(),
 };
 
-tileImages.floorTop.src = "assets/tile-floor-top.svg";
-tileImages.floorBase.src = "assets/tile-floor-base.svg";
-tileImages.obstacle.src = "assets/tile-obstacle.svg";
+tileImages.floorTop.src = "assets/tile-floor-top.png";
+tileImages.floorBase.src = "assets/tile-floor-base.png";
+tileImages.obstacle.src = "assets/tile-obstacle.png";
 
 const playerSprite = new Image();
-playerSprite.src = "assets/player-runner-sprite.svg";
+playerSprite.src = "assets/player-runner-sprite.png";
 
 const playerFrames = {
   run: [0, 1, 2],
   jump: 3,
 };
-const spriteFrameWidth = 64;
-const spriteFrameHeight = 64;
+const spriteFrameWidth = 32;
+const spriteFrameHeight = 32;
+
+const backgroundLayers = [
+  {
+    image: new Image(),
+    src: "assets/bg-parallax-far.png",
+    speed: 0.12,
+    height: 150,
+    bottomGap: 130,
+    fallback: "rgba(145, 173, 191, 0.4)",
+  },
+  {
+    image: new Image(),
+    src: "assets/bg-parallax-mid.png",
+    speed: 0.22,
+    height: 146,
+    bottomGap: 92,
+    fallback: "rgba(92, 119, 120, 0.5)",
+  },
+  {
+    image: new Image(),
+    src: "assets/bg-parallax-near.png",
+    speed: 0.36,
+    height: 132,
+    bottomGap: 48,
+    fallback: "rgba(72, 102, 58, 0.65)",
+  },
+];
+
+for (const layer of backgroundLayers) {
+  layer.image.src = layer.src;
+}
 
 const state = {
   phase: "idle",
@@ -48,6 +79,7 @@ const state = {
   distance: 0,
   speed: START_SPEED,
   offsetX: 0,
+  worldScroll: 0,
   nextObstacleInTiles: 14,
   columns: [],
   player: {
@@ -125,6 +157,7 @@ function resetGame() {
   state.distance = 0;
   state.speed = START_SPEED;
   state.offsetX = 0;
+  state.worldScroll = 0;
   state.nextObstacleInTiles = 16;
   state.player.y = playerBaseY();
   state.player.velocityY = 0;
@@ -240,6 +273,7 @@ function update(delta) {
   }
 
   state.offsetX += state.speed * delta;
+  state.worldScroll += state.speed * delta;
 
   while (state.offsetX >= TILE_SIZE) {
     state.offsetX -= TILE_SIZE;
@@ -287,7 +321,7 @@ function detectCollision() {
   return false;
 }
 
-function drawBackdrop() {
+function drawBackdropBase() {
   const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
   skyGradient.addColorStop(0, "#dcecff");
   skyGradient.addColorStop(0.55, "#f5eddc");
@@ -300,7 +334,39 @@ function drawBackdrop() {
   ctx.ellipse(canvas.width * 0.2, canvas.height * 0.18, 110, 42, 0, 0, Math.PI * 2);
   ctx.ellipse(canvas.width * 0.72, canvas.height * 0.13, 150, 54, 0, 0, Math.PI * 2);
   ctx.fill();
+}
 
+function drawRepeatingBackgroundLayer(layer) {
+  const image = layer.image;
+  const drawHeight = layer.height;
+  const drawY = groundSurfaceY() - layer.bottomGap - drawHeight;
+
+  if (!(image.complete && image.naturalWidth > 0)) {
+    ctx.fillStyle = layer.fallback;
+    ctx.fillRect(0, drawY + drawHeight * 0.45, canvas.width, drawHeight * 0.55);
+    return;
+  }
+
+  const scale = drawHeight / image.naturalHeight;
+  const drawWidth = image.naturalWidth * scale;
+  const offset = (state.worldScroll * layer.speed) % drawWidth;
+
+  for (
+    let drawX = -offset - drawWidth;
+    drawX < canvas.width + drawWidth;
+    drawX += drawWidth
+  ) {
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  }
+}
+
+function drawParallaxLayers() {
+  for (const layer of backgroundLayers) {
+    drawRepeatingBackgroundLayer(layer);
+  }
+}
+
+function drawForegroundBackdropLayer() {
   ctx.fillStyle = "rgba(15, 118, 110, 0.08)";
   ctx.beginPath();
   ctx.moveTo(0, canvas.height * 0.84);
@@ -310,6 +376,12 @@ function drawBackdrop() {
   ctx.lineTo(0, canvas.height);
   ctx.closePath();
   ctx.fill();
+}
+
+function drawBackdrop() {
+  drawBackdropBase();
+  drawParallaxLayers();
+  drawForegroundBackdropLayer();
 }
 
 function drawTiles() {
@@ -405,6 +477,7 @@ function drawGoalMarker() {
 }
 
 function draw() {
+  ctx.imageSmoothingEnabled = false;
   drawBackdrop();
   drawTiles();
   drawPlayer();
