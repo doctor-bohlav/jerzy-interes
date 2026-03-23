@@ -55,8 +55,9 @@ const FIREBALL_FALL_SPEED_MAX = 580;
 const FIREBALL_IMPACT_EFFECT_MS = 260;
 const FIREBALL_IMPACT_RADIUS = TILE_SIZE * 1.15;
 const FIREBALL_IMPACT_GROUND_CLEARANCE = TILE_SIZE * 0.72;
-const GROUND_TRANSITION_HEIGHT = TILE_SIZE * 1.5;
-const GROUND_TRANSITION_TOP_OFFSET = TILE_SIZE * 0.75;
+const GROUND_TRANSITION_HEIGHT = TILE_SIZE;
+const GROUND_TRANSITION_OVERLAP = TILE_SIZE * 0.75;
+const PARALLAX_GAP_SCALE = 0.75;
 const GOOD_CLOUD_WIDTH = TILE_SIZE * 2.45;
 const GOOD_CLOUD_HEIGHT = TILE_SIZE * 1.22;
 const GOOD_CLOUD_VERTICAL_OFFSET = TILE_SIZE * 1.12;
@@ -194,6 +195,7 @@ const backgroundLayers = [
     fallback: "rgba(72, 102, 58, 0.65)",
   },
 ];
+const BASE_PARALLAX_BOTTOM_GAP = Math.min(...backgroundLayers.map((layer) => layer.bottomGap ?? 0));
 
 for (const layer of backgroundLayers) {
   layer.image.src = layer.src;
@@ -235,6 +237,7 @@ const state = {
 const worldTop = () => canvas.height - WORLD_ROWS * TILE_SIZE - TILE_SIZE;
 const groundRow = () => WORLD_ROWS - 2;
 const groundSurfaceY = () => worldTop() + groundRow() * TILE_SIZE;
+const backgroundStartY = () => groundSurfaceY() - GROUND_TRANSITION_HEIGHT;
 const playerBaseY = () => groundSurfaceY() - state.player.height;
 
 function drawRoundedRect(x, y, width, height, radius) {
@@ -1036,7 +1039,8 @@ function drawBackdropBase() {
 function drawRepeatingBackgroundLayer(layer) {
   const image = layer.image;
   const drawHeight = layer.height;
-  const drawY = groundSurfaceY() - layer.bottomGap - drawHeight;
+  const bottomGap = Math.max(0, (layer.bottomGap ?? 0) - BASE_PARALLAX_BOTTOM_GAP) * PARALLAX_GAP_SCALE;
+  const drawY = backgroundStartY() - bottomGap - drawHeight;
 
   if (!(image.complete && image.naturalWidth > 0)) {
     ctx.fillStyle = layer.fallback;
@@ -1064,19 +1068,21 @@ function drawParallaxLayers() {
 }
 
 function drawForegroundBackdropLayer() {
+  const backdropBaseY = backgroundStartY();
   ctx.fillStyle = "rgba(15, 118, 110, 0.08)";
   ctx.beginPath();
-  ctx.moveTo(0, canvas.height * 0.84);
-  ctx.quadraticCurveTo(canvas.width * 0.18, canvas.height * 0.68, canvas.width * 0.4, canvas.height * 0.8);
-  ctx.quadraticCurveTo(canvas.width * 0.68, canvas.height * 0.95, canvas.width, canvas.height * 0.72);
-  ctx.lineTo(canvas.width, canvas.height);
-  ctx.lineTo(0, canvas.height);
+  ctx.moveTo(0, backdropBaseY);
+  ctx.quadraticCurveTo(canvas.width * 0.18, backdropBaseY - 78, canvas.width * 0.4, backdropBaseY - 22);
+  ctx.quadraticCurveTo(canvas.width * 0.68, backdropBaseY - 14, canvas.width, backdropBaseY - 58);
+  ctx.lineTo(canvas.width, backdropBaseY);
+  ctx.lineTo(0, backdropBaseY);
   ctx.closePath();
   ctx.fill();
 }
 
 function drawBackdrop() {
   drawBackdropBase();
+  drawGroundTransition();
   drawParallaxLayers();
   drawForegroundBackdropLayer();
 }
@@ -1141,22 +1147,22 @@ function drawGoodClouds() {
 }
 
 function drawGroundTransition() {
-  const image = supportImages.groundTransition;
-  const drawHeight = GROUND_TRANSITION_HEIGHT;
-  const drawY = groundSurfaceY() - GROUND_TRANSITION_TOP_OFFSET;
+  const drawY = backgroundStartY() - GROUND_TRANSITION_OVERLAP;
+  const drawHeight = groundSurfaceY() - drawY;
+  const transitionOverlay = supportImages.groundTransition;
 
-  if (!(image.complete && image.naturalWidth > 0)) {
+  if (!(transitionOverlay.complete && transitionOverlay.naturalWidth > 0)) {
     const fallbackGradient = ctx.createLinearGradient(0, drawY, 0, drawY + drawHeight);
-    fallbackGradient.addColorStop(0, "rgba(126, 162, 96, 0.92)");
-    fallbackGradient.addColorStop(0.55, "rgba(103, 133, 77, 0.96)");
-    fallbackGradient.addColorStop(1, "rgba(79, 105, 59, 1)");
+    fallbackGradient.addColorStop(0, "rgba(144, 170, 111, 0.96)");
+    fallbackGradient.addColorStop(0.55, "rgba(112, 142, 82, 0.98)");
+    fallbackGradient.addColorStop(1, "rgba(85, 111, 63, 1)");
     ctx.fillStyle = fallbackGradient;
     ctx.fillRect(0, drawY, canvas.width, drawHeight);
     return;
   }
 
-  const scale = drawHeight / image.naturalHeight;
-  const drawWidth = image.naturalWidth * scale;
+  const scale = drawHeight / transitionOverlay.naturalHeight;
+  const drawWidth = transitionOverlay.naturalWidth * scale;
   const offset = state.worldScroll % drawWidth;
 
   for (
@@ -1164,7 +1170,7 @@ function drawGroundTransition() {
     drawX < canvas.width + drawWidth;
     drawX += drawWidth
   ) {
-    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+    ctx.drawImage(transitionOverlay, drawX, drawY, drawWidth, drawHeight);
   }
 }
 
@@ -1730,7 +1736,6 @@ function draw() {
   drawBackdrop();
   drawOutageClouds();
   drawGoodClouds();
-  drawGroundTransition();
   drawTiles();
   drawBugs();
   drawFireballs();
