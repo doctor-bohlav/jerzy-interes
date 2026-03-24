@@ -320,9 +320,9 @@ func fillTerrain(canvas: inout Canvas, topProfile: [Int], fill: Color, shade: Co
     let topY = clamp(topProfile[x], min: 0, max: canvas.height - 1)
     for y in topY..<canvas.height {
       let color: Color
-      if ((x + y) % 9) < 2 {
+      if (((x / 2) + (y / 2)) % 6) < 2 {
         color = highlight
-      } else if ((x * 3 + y * 5) % 11) < 3 {
+      } else if (((x / 3) * 2 + (y / 2)) % 7) < 2 {
         color = shade
       } else {
         color = fill
@@ -345,12 +345,52 @@ func addGrassTufts(canvas: inout Canvas, topProfile: [Int], color: Color, count:
   }
 }
 
-func drawFloorTopTile() -> Canvas {
+func darkenTopBand(
+  canvas: inout Canvas,
+  bandHeight: Int,
+  maxDarken: Double,
+  extraDarkenRows: Int = 0,
+  extraDarken: Double = 0
+) {
+  let height = min(canvas.height, max(0, bandHeight))
+  guard height > 0 else {
+    return
+  }
+
+  let extraRows = min(height, max(0, extraDarkenRows))
+
+  for y in 0..<height {
+    let amount = height <= 1 ? 1.0 : 1.0 - (Double(y) / Double(height - 1))
+    var multiplier = max(0, 1.0 - maxDarken * amount)
+
+    if extraRows > 0, y < extraRows {
+      let extraAmount = extraRows <= 1 ? 1.0 : 1.0 - (Double(y) / Double(extraRows - 1))
+      multiplier *= max(0, 1.0 - extraDarken * extraAmount)
+    }
+
+    for x in 0..<canvas.width {
+      let index = (y * canvas.width + x) * 4
+      let alpha = canvas.pixels[index + 3]
+      if alpha == 0 {
+        continue
+      }
+
+      canvas.pixels[index] = UInt8((Double(canvas.pixels[index]) * multiplier).rounded())
+      canvas.pixels[index + 1] = UInt8((Double(canvas.pixels[index + 1]) * multiplier).rounded())
+      canvas.pixels[index + 2] = UInt8((Double(canvas.pixels[index + 2]) * multiplier).rounded())
+    }
+  }
+}
+
+func drawFloorTopTile(variant: Int = 0) -> Canvas {
   var canvas = Canvas(width: 48, height: 48)
   let turf = profile(
     width: canvas.width,
-    base: 10,
-    waves: [(1.2, 4, 0.2), (0.7, 8, 1.1)]
+    base: 10 + Double((variant % 2) - 1),
+    waves: [
+      (1.2 + Double(variant) * 0.22, 4, 0.2 + Double(variant) * 0.35),
+      (0.7 + Double(variant) * 0.12, 8 - Double(variant % 2), 1.1 + Double(variant) * 0.28)
+    ]
   )
 
   fillTerrain(canvas: &canvas, topProfile: turf.map { $0 + 7 }, fill: soil, shade: soilDark, highlight: soilLight)
@@ -358,25 +398,82 @@ func drawFloorTopTile() -> Canvas {
   for x in 0..<canvas.width {
     let grassTop = clamp(turf[x], min: 4, max: 14)
     for y in grassTop..<(grassTop + 8) {
-      let color: Color = ((x + y) % 7 < 2) ? grassLight : (((x * 2 + y) % 5 == 0) ? grassDark : grass)
+      let color: Color =
+        ((x + y + variant * 3) % (7 + variant) < 2)
+          ? grassLight
+          : (((x * (2 + variant) + y + variant * 5) % (5 + variant)) == 0 ? grassDark : grass)
       canvas.setPixel(x, y, color)
     }
     canvas.setPixel(x, grassTop, ink)
     canvas.setPixel(x, min(grassTop + 1, canvas.height - 1), mossLight)
   }
 
-  addGrassTufts(canvas: &canvas, topProfile: turf, color: mossLight, count: 18, stride: 7)
-  canvas.sprinkle(inRectX: 6, y: 22, width: 36, height: 20, colors: [soilLight, stoneLight], spacingX: 11, spacingY: 6, offset: 3)
+  addGrassTufts(
+    canvas: &canvas,
+    topProfile: turf,
+    color: variant == 2 ? grassLight : mossLight,
+    count: 18 + variant * 4,
+    stride: max(5, 7 - variant)
+  )
+  if variant == 1 {
+    canvas.sprinkle(
+      inRectX: 5,
+      y: 22,
+      width: 38,
+      height: 18,
+      colors: [soilLight, stone, stoneLight],
+      spacingX: 9,
+      spacingY: 5,
+      offset: 11
+    )
+  } else if variant == 2 {
+    canvas.sprinkle(
+      inRectX: 4,
+      y: 21,
+      width: 40,
+      height: 20,
+      colors: [soilLight, mossLight, stoneLight],
+      spacingX: 8,
+      spacingY: 5,
+      offset: 19
+    )
+    canvas.fillRect(30, 18, 5, 2, grassDark)
+    canvas.fillRect(31, 17, 3, 1, mossLight)
+  } else {
+    canvas.sprinkle(inRectX: 6, y: 22, width: 36, height: 20, colors: [soilLight, stoneLight], spacingX: 11, spacingY: 6, offset: 3)
+  }
+
+  darkenTopBand(canvas: &canvas, bandHeight: 10, maxDarken: 0.34, extraDarkenRows: 5, extraDarken: 0.22)
   return canvas
 }
 
-func drawFloorBaseTile() -> Canvas {
+func drawFloorBaseTile(variant: Int = 0) -> Canvas {
   var canvas = Canvas(width: 48, height: 48, background: soil)
-  canvas.checkerRect(0, 0, 48, 48, soil, soilDark, step: 4)
-  canvas.sprinkle(inRectX: 3, y: 5, width: 42, height: 38, colors: [soilLight, stone, stoneLight], spacingX: 10, spacingY: 5, offset: 9)
+  canvas.checkerRect(0, 0, 48, 48, soil, variant == 2 ? clothDark : soilDark, step: max(2, 4 - variant))
+  canvas.sprinkle(
+    inRectX: 3,
+    y: 5,
+    width: 42,
+    height: 38,
+    colors: variant == 1 ? [soilLight, stone, stoneLight, mossLight] : [soilLight, stone, stoneLight],
+    spacingX: max(6, 10 - variant * 2),
+    spacingY: 5,
+    offset: 9 + variant * 7
+  )
 
   for x in stride(from: 6, to: 42, by: 11) {
-    canvas.line(x, 4, x - 2, 44, shadeColor(for: x))
+    let xOffset = variant == 2 ? 1 : 0
+    canvas.line(x + xOffset, 4, x - 2 + xOffset, 44, shadeColor(for: x + variant * 3))
+  }
+
+  if variant == 1 {
+    for y in stride(from: 10, to: 42, by: 9) {
+      canvas.line(5, y, 42, y - 2, stone)
+    }
+  } else if variant == 2 {
+    canvas.fillRect(8, 12, 12, 3, soilDark)
+    canvas.fillRect(26, 26, 14, 4, clothDark)
+    canvas.fillRect(28, 18, 5, 2, soilLight)
   }
 
   return canvas
@@ -431,7 +528,8 @@ func drawSkyBackdrop() -> Canvas {
   var canvas = Canvas(width: 320, height: 180)
 
   for y in 0..<canvas.height {
-    let amount = Double(y) / Double(canvas.height - 1)
+    let bandY = (y / 3) * 3
+    let amount = Double(bandY) / Double(canvas.height - 1)
     let baseColor: Color
     if amount < 0.55 {
       baseColor = mix(skyTop, skyMid, amount: amount / 0.55)
@@ -440,53 +538,498 @@ func drawSkyBackdrop() -> Canvas {
     }
 
     for x in 0..<canvas.width {
-      let shimmer = ((x * 5 + y * 3) % 23 == 0) ? skyMist : baseColor
+      let shimmer = (((x / 2) * 5 + (y / 3) * 3) % 23 == 0) ? skyMist : baseColor
       canvas.setPixel(x, y, shimmer)
     }
   }
 
-  canvas.fillEllipse(centerX: 78, centerY: 42, radiusX: 36, radiusY: 18, fill: hex("#F2F3E3", alpha: 220))
-  canvas.fillEllipse(centerX: 260, centerY: 28, radiusX: 48, radiusY: 20, fill: hex("#F6F6EB", alpha: 190))
-  canvas.fillEllipse(centerX: 238, centerY: 36, radiusX: 26, radiusY: 11, fill: hex("#F1F3E5", alpha: 170))
-  canvas.fillEllipse(centerX: 286, centerY: 31, radiusX: 24, radiusY: 10, fill: hex("#F1F3E5", alpha: 170))
+  let backMountains = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 112,
+      waves: [(12.0, 1.6, 0.3), (8.0, 3.3, 1.1), (4.0, 7.0, 0.4)]
+    ),
+    segmentWidth: 12,
+    verticalStep: 3
+  )
+  let frontMountains = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 136,
+      waves: [(13.0, 1.9, 2.2), (7.0, 4.4, 0.2), (3.0, 10.0, 1.4)]
+    ),
+    segmentWidth: 8,
+    verticalStep: 2
+  )
+  let valley = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 155,
+      waves: [(10.0, 1.5, 1.7), (5.0, 3.8, 0.6), (2.0, 11.0, 1.0)]
+    ),
+    segmentWidth: 6,
+    verticalStep: 1
+  )
 
-  for x in stride(from: 10, to: 310, by: 34) {
-    let hazeY = 118 + (x / 34) % 3
-    canvas.fillRect(x, hazeY, 18, 2, hex("#E9E8D3", alpha: 120))
-    canvas.fillRect(x + 3, hazeY + 3, 12, 1, hex("#F1EEDC", alpha: 110))
+  fillDistantTerrain(
+    canvas: &canvas,
+    topProfile: backMountains,
+    fill: mix(hex("#A4B9E4"), hex("#8098D5"), amount: 0.5),
+    shade: hex("#7A8FC2"),
+    highlight: hex("#DCE6FB"),
+    ditherStep: 8
+  )
+  fillDistantTerrain(
+    canvas: &canvas,
+    topProfile: frontMountains,
+    fill: hex("#6E86BE"),
+    shade: hex("#536A98"),
+    highlight: hex("#BFD1F4"),
+    ditherStep: 7
+  )
+  fillTerrain(
+    canvas: &canvas,
+    topProfile: valley,
+    fill: grass,
+    shade: grassDark,
+    highlight: grassLight
+  )
+  addPixelPines(
+    canvas: &canvas,
+    topProfile: valley,
+    foliage: nearGreen,
+    shade: grassDark,
+    trunk: soilDark,
+    stride: 10,
+    minHeight: 9,
+    maxHeight: 16,
+    seed: 4
+  )
+
+  drawBlockCloud(
+    canvas: &canvas,
+    originX: 26,
+    originY: 20,
+    fill: hex("#F4F6EE", alpha: 220),
+    shade: hex("#DDE6F0", alpha: 210),
+    highlight: hex("#FFFFFF", alpha: 230),
+    outline: nil
+  )
+  drawBlockCloud(
+    canvas: &canvas,
+    originX: 210,
+    originY: 15,
+    fill: hex("#F3F5EC", alpha: 210),
+    shade: hex("#DBE3EE", alpha: 195),
+    highlight: hex("#FFFFFF", alpha: 220),
+    outline: nil
+  )
+  drawBlockCloud(
+    canvas: &canvas,
+    originX: 102,
+    originY: 58,
+    fill: hex("#F4F6EE", alpha: 200),
+    shade: hex("#D9E2ED", alpha: 190),
+    highlight: hex("#FFFFFF", alpha: 215),
+    outline: nil
+  )
+
+  for x in stride(from: 12, to: 308, by: 28) {
+    let hazeY = 120 + (x / 28) % 5
+    canvas.fillRect(x, hazeY, 12, 1, hex("#E8EFD8", alpha: 120))
   }
 
-  for x in stride(from: 0, to: canvas.width, by: 13) {
-    let cloudBandY = 70 + (x / 13) % 6
-    canvas.fillRect(x, cloudBandY, 7, 1, hex("#EDF0E1", alpha: 95))
+  return canvas
+}
+
+func quantizeProfile(_ source: [Int], segmentWidth: Int, verticalStep: Int) -> [Int] {
+  guard !source.isEmpty else {
+    return source
   }
 
+  let safeSegmentWidth = max(segmentWidth, 1)
+  let safeVerticalStep = max(verticalStep, 1)
+  var result = source
+
+  for start in stride(from: 0, to: source.count, by: safeSegmentWidth) {
+    let end = min(start + safeSegmentWidth, source.count)
+    let average = source[start..<end].reduce(0, +) / max(end - start, 1)
+    let snapped = (average / safeVerticalStep) * safeVerticalStep
+    for index in start..<end {
+      result[index] = snapped
+    }
+  }
+
+  return result
+}
+
+func addPixelPines(
+  canvas: inout Canvas,
+  topProfile: [Int],
+  foliage: Color,
+  shade: Color,
+  trunk: Color,
+  stride: Int,
+  minHeight: Int,
+  maxHeight: Int,
+  seed: Int
+) {
+  guard stride > 0, !topProfile.isEmpty else {
+    return
+  }
+
+  let heightSpan = max(1, maxHeight - minHeight + 1)
+  let treeCount = max(1, canvas.width / stride)
+
+  for index in 0..<treeCount {
+    let xJitter = (index * 5 + seed * 3) % max(2, stride / 2)
+    let x = min(canvas.width - 2, index * stride + 4 + xJitter)
+    let ridgeY = clamp(topProfile[x], min: maxHeight + 4, max: canvas.height - 4)
+    let treeHeight = minHeight + ((index * 7 + seed) % heightSpan)
+    let trunkTopY = ridgeY - 1
+    canvas.setPixel(x, trunkTopY, trunk)
+
+    for level in 0..<treeHeight {
+      let y = ridgeY - 2 - level
+      let halfWidth = max(0, (treeHeight - level + 1) / 4)
+      for dx in -halfWidth...halfWidth {
+        let color = dx == 0 || level % 2 == 0 ? foliage : shade
+        canvas.setPixel(x + dx, y, color)
+      }
+
+      if halfWidth > 0 && level % 3 == 0 {
+        canvas.setPixel(x + halfWidth, y, foliage)
+        canvas.setPixel(x - halfWidth, y, foliage)
+      }
+    }
+
+    canvas.setPixel(x, ridgeY - treeHeight - 1, mossLight)
+  }
+}
+
+func addCliffBlocks(
+  canvas: inout Canvas,
+  topProfile: [Int],
+  fill: Color,
+  shade: Color,
+  highlight: Color,
+  stride: Int,
+  seed: Int
+) {
+  guard stride > 0, !topProfile.isEmpty else {
+    return
+  }
+
+  let blockCount = max(1, canvas.width / stride)
+  for index in 0..<blockCount {
+    let centerX = min(canvas.width - 8, index * stride + 8 + ((index * 3 + seed) % 5))
+    let ridgeY = clamp(topProfile[centerX], min: 10, max: canvas.height - 18)
+    let blockWidth = 7 + ((index + seed) % 3) * 3
+    let blockHeight = 3 + ((index * 2 + seed) % 3) * 2
+    let blockX = clamp(centerX - blockWidth / 2, min: 1, max: canvas.width - blockWidth - 1)
+    let blockY = ridgeY + 5 + ((index + seed) % 4) * 2
+
+    canvas.fillRect(blockX, blockY, blockWidth, blockHeight, fill)
+    canvas.fillRect(blockX, blockY, blockWidth, 1, highlight)
+    if blockHeight > 1 {
+      canvas.fillRect(blockX, blockY + 1, max(2, blockWidth - 2), blockHeight - 1, shade)
+    }
+    canvas.setPixel(blockX, blockY, ink)
+    canvas.setPixel(blockX + blockWidth - 1, blockY, ink)
+  }
+}
+
+func fillDistantTerrain(
+  canvas: inout Canvas,
+  topProfile: [Int],
+  fill: Color,
+  shade: Color,
+  highlight: Color,
+  ditherStep: Int
+) {
+  let safeDitherStep = max(2, ditherStep)
+
+  for x in 0..<canvas.width {
+    let topY = clamp(topProfile[x], min: 0, max: canvas.height - 1)
+    for y in topY..<canvas.height {
+      let depth = y - topY
+      let color: Color
+      if depth == 0 {
+        color = ink
+      } else if depth == 1 {
+        color = ((x / 2) + y) % (safeDitherStep + 1) == 0 ? highlight : fill
+      } else if depth < 6 && ((x / 4) + y) % safeDitherStep == 0 {
+        color = highlight
+      } else if ((x / 5) + (y / 2)) % (safeDitherStep + 1) == 0 {
+        color = shade
+      } else {
+        color = fill
+      }
+      canvas.setPixel(x, y, color)
+    }
+  }
+}
+
+func drawBlockCloud(
+  canvas: inout Canvas,
+  originX: Int,
+  originY: Int,
+  fill: Color,
+  shade: Color,
+  highlight: Color,
+  outline: Color? = ink
+) {
+  let puffs = [
+    (2, 14, 18, 8),
+    (14, 8, 20, 10),
+    (30, 12, 18, 8),
+    (20, 3, 12, 8),
+    (0, 17, 14, 5),
+    (40, 16, 12, 5),
+  ]
+
+  for puff in puffs {
+    canvas.fillRect(originX + puff.0, originY + puff.1, puff.2, puff.3, fill)
+  }
+
+  let shadeRects = [
+    (5, 18, 14, 3),
+    (18, 15, 16, 3),
+    (33, 18, 11, 3),
+  ]
+  for rect in shadeRects {
+    canvas.fillRect(originX + rect.0, originY + rect.1, rect.2, rect.3, shade)
+  }
+
+  let highlightRects = [
+    (17, 9, 8, 2),
+    (23, 5, 6, 2),
+    (35, 13, 6, 2),
+    (8, 15, 6, 2),
+  ]
+  for rect in highlightRects {
+    canvas.fillRect(originX + rect.0, originY + rect.1, rect.2, rect.3, highlight)
+  }
+
+  if let outline {
+    for rect in [
+      (2, 14, 18, 8),
+      (14, 8, 20, 10),
+      (30, 12, 18, 8),
+      (20, 3, 12, 8),
+    ] {
+      canvas.strokeRect(originX + rect.0, originY + rect.1, rect.2, rect.3, outline)
+    }
+    canvas.line(originX + 3, originY + 22, originX + 47, originY + 22, outline)
+  }
+}
+
+func drawFarParallaxLayer() -> Canvas {
+  var canvas = Canvas(width: 320, height: 96)
+  let farBack = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 46,
+      waves: [(5.0, 1.2, 0.4), (2.4, 2.8, 1.3), (1.2, 6.5, 0.2)]
+    ),
+    segmentWidth: 18,
+    verticalStep: 3
+  )
+  let farMid = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 58,
+      waves: [(6.5, 1.4, 1.2), (3.2, 3.1, 0.5), (1.6, 8.0, 1.8)]
+    ),
+    segmentWidth: 12,
+    verticalStep: 2
+  )
+  let farFront = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 69,
+      waves: [(7.0, 1.8, 2.3), (3.6, 3.8, 0.3), (2.0, 9.0, 1.0)]
+    ),
+    segmentWidth: 8,
+    verticalStep: 2
+  )
+
+  fillDistantTerrain(
+    canvas: &canvas,
+    topProfile: farBack,
+    fill: mix(skyMist, farGreen, amount: 0.42),
+    shade: mix(skyTop, farGreen, amount: 0.22),
+    highlight: mix(skyMid, mossLight, amount: 0.35),
+    ditherStep: 8
+  )
+  fillDistantTerrain(
+    canvas: &canvas,
+    topProfile: farMid,
+    fill: farGreen,
+    shade: mix(farGreen, skyMist, amount: 0.32),
+    highlight: mix(mossLight, skyMist, amount: 0.48),
+    ditherStep: 7
+  )
+  fillDistantTerrain(
+    canvas: &canvas,
+    topProfile: farFront,
+    fill: mix(farGreen, midGreen, amount: 0.4),
+    shade: midGreen,
+    highlight: mossLight,
+    ditherStep: 6
+  )
+
+  addPixelPines(
+    canvas: &canvas,
+    topProfile: farMid,
+    foliage: mix(farGreen, skyMist, amount: 0.55),
+    shade: farGreen,
+    trunk: soilDark,
+    stride: 20,
+    minHeight: 4,
+    maxHeight: 7,
+    seed: 3
+  )
+  addPixelPines(
+    canvas: &canvas,
+    topProfile: farFront,
+    foliage: midGreen,
+    shade: nearGreen,
+    trunk: soilDark,
+    stride: 14,
+    minHeight: 6,
+    maxHeight: 10,
+    seed: 7
+  )
+
+  for y in [49, 57, 66] {
+    canvas.fillRect(0, y, canvas.width, 1, hex("#E7EFE6", alpha: 75))
+    canvas.fillRect(0, y + 1, canvas.width, 1, hex("#C8D8D0", alpha: 45))
+  }
+
+  for x in stride(from: 6, to: canvas.width, by: 18) {
+    let mistY = 61 + (x / 18) % 6
+    canvas.fillRect(x, mistY, 8, 1, hex("#EEF5EB", alpha: 95))
+  }
+
+  return canvas
+}
+
+func drawMidParallaxLayer() -> Canvas {
+  var canvas = Canvas(width: 256, height: 96)
+  let backRidge = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 54,
+      waves: [(6.5, 1.7, 0.9), (3.0, 3.6, 1.8), (1.5, 8.5, 0.2)]
+    ),
+    segmentWidth: 10,
+    verticalStep: 2
+  )
+  let frontRidge = quantizeProfile(
+    profile(
+      width: canvas.width,
+      base: 66,
+      waves: [(8.0, 2.1, 2.0), (4.0, 4.4, 0.3), (2.0, 10.5, 1.1)]
+    ),
+    segmentWidth: 6,
+    verticalStep: 1
+  )
+
+  fillTerrain(
+    canvas: &canvas,
+    topProfile: backRidge,
+    fill: midGreen,
+    shade: farGreen,
+    highlight: grassLight
+  )
+  fillTerrain(
+    canvas: &canvas,
+    topProfile: frontRidge,
+    fill: mix(midGreen, nearGreen, amount: 0.5),
+    shade: nearGreen,
+    highlight: mossLight
+  )
+
+  addCliffBlocks(
+    canvas: &canvas,
+    topProfile: frontRidge,
+    fill: grassDark,
+    shade: mix(grassDark, nearGreen, amount: 0.5),
+    highlight: grassLight,
+    stride: 18,
+    seed: 5
+  )
+  addPixelPines(
+    canvas: &canvas,
+    topProfile: frontRidge,
+    foliage: grassLight,
+    shade: grassDark,
+    trunk: soilDark,
+    stride: 12,
+    minHeight: 7,
+    maxHeight: 11,
+    seed: 9
+  )
+
+  for x in stride(from: 0, to: canvas.width, by: 17) {
+    let stripeY = clamp(frontRidge[min(x + 4, canvas.width - 1)] + 10, min: 24, max: canvas.height - 6)
+    canvas.fillRect(x, stripeY, 10, 1, mossLight)
+  }
+
+  canvas.fillRect(0, canvas.height - 5, canvas.width, 5, nearGreen)
   return canvas
 }
 
 func drawParallaxLayer(fill: Color, shade: Color, highlight: Color, baseHeight: Double, waves: [(Double, Double, Double)], detailStride: Int) -> Canvas {
   var canvas = Canvas(width: 256, height: 96)
-  let ridge = profile(width: canvas.width, base: baseHeight, waves: waves.map { ($0.0, $0.1, $0.2) })
+  let ridge = quantizeProfile(
+    profile(width: canvas.width, base: baseHeight, waves: waves.map { ($0.0, $0.1, $0.2) }),
+    segmentWidth: max(4, detailStride / 2),
+    verticalStep: 1
+  )
   fillTerrain(canvas: &canvas, topProfile: ridge, fill: fill, shade: shade, highlight: highlight)
 
-  for x in stride(from: 0, to: canvas.width, by: detailStride) {
-    let topY = clamp(ridge[x] - 2, min: 6, max: canvas.height - 12)
-    let columnHeight = 3 + (x / detailStride) % 4
-    canvas.fillRect(x, topY, 2, columnHeight, shade)
+  addCliffBlocks(
+    canvas: &canvas,
+    topProfile: ridge,
+    fill: shade,
+    shade: mix(shade, fill, amount: 0.55),
+    highlight: highlight,
+    stride: max(12, detailStride + 2),
+    seed: detailStride
+  )
+  addPixelPines(
+    canvas: &canvas,
+    topProfile: ridge,
+    foliage: highlight,
+    shade: shade,
+    trunk: soilDark,
+    stride: max(11, detailStride),
+    minHeight: 6,
+    maxHeight: 10,
+    seed: detailStride + 3
+  )
+
+  for x in stride(from: 0, to: canvas.width, by: max(10, detailStride)) {
+    let stripeY = clamp(ridge[min(x + 3, canvas.width - 1)] + 8, min: 22, max: canvas.height - 8)
+    canvas.fillRect(x, stripeY, max(4, detailStride - 3), 1, highlight)
   }
 
   canvas.fillRect(0, canvas.height - 4, canvas.width, 4, shade)
-  canvas.sprinkle(inRectX: 0, y: canvas.height - 18, width: canvas.width, height: 12, colors: [highlight, shade], spacingX: 19, spacingY: 4, offset: detailStride)
   return canvas
 }
 
 func drawStormCloud() -> Canvas {
   var canvas = Canvas(width: 96, height: 48)
-  canvas.fillEllipse(centerX: 26, centerY: 24, radiusX: 18, radiusY: 12, fill: storm, outline: ink)
-  canvas.fillEllipse(centerX: 47, centerY: 19, radiusX: 20, radiusY: 14, fill: stormLight, outline: ink)
-  canvas.fillEllipse(centerX: 68, centerY: 24, radiusX: 18, radiusY: 13, fill: storm, outline: ink)
-  canvas.fillRect(18, 24, 58, 13, storm)
-  canvas.strokeRect(18, 24, 58, 13, ink)
+  drawBlockCloud(
+    canvas: &canvas,
+    originX: 18,
+    originY: 6,
+    fill: storm,
+    shade: stormDark,
+    highlight: stormLight
+  )
   canvas.fillRect(24, 26, 10, 3, stormDark)
   canvas.fillRect(62, 26, 10, 3, stormDark)
   canvas.fillRect(31, 30, 5, 2, ink)
@@ -498,11 +1041,14 @@ func drawStormCloud() -> Canvas {
 
 func drawGoodCloud() -> Canvas {
   var canvas = Canvas(width: 96, height: 48)
-  canvas.fillEllipse(centerX: 27, centerY: 24, radiusX: 18, radiusY: 12, fill: goodMid, outline: ink)
-  canvas.fillEllipse(centerX: 48, centerY: 19, radiusX: 20, radiusY: 14, fill: goodLight, outline: ink)
-  canvas.fillEllipse(centerX: 69, centerY: 24, radiusX: 18, radiusY: 13, fill: goodMid, outline: ink)
-  canvas.fillRect(18, 24, 58, 13, goodMid)
-  canvas.strokeRect(18, 24, 58, 13, ink)
+  drawBlockCloud(
+    canvas: &canvas,
+    originX: 18,
+    originY: 6,
+    fill: goodMid,
+    shade: tealDark,
+    highlight: goodLight
+  )
   canvas.fillRect(26, 27, 4, 4, tealDark)
   canvas.fillRect(62, 27, 4, 4, tealDark)
   canvas.line(36, 34, 48, 37, tealDark)
@@ -511,6 +1057,87 @@ func drawGoodCloud() -> Canvas {
   canvas.fillRect(78, 8, 2, 2, mossLight)
   canvas.fillRect(82, 13, 1, 4, mossLight)
   canvas.fillRect(16, 14, 1, 4, mossLight)
+  return canvas
+}
+
+func drawShrubSprite(variant: Int = 0) -> Canvas {
+  var canvas = Canvas(width: 32, height: 24)
+  let fill = variant == 0 ? grass : mix(grass, nearGreen, amount: 0.38)
+  let shade = variant == 0 ? grassDark : nearGreen
+  let highlight = variant == 0 ? grassLight : mossLight
+  let clumps =
+    variant == 0
+      ? [(4, 11, 10, 7), (11, 8, 11, 9), (19, 11, 9, 7), (2, 14, 6, 5), (23, 14, 5, 4)]
+      : [(3, 12, 8, 6), (9, 9, 12, 8), (19, 12, 10, 6), (6, 15, 5, 4), (22, 14, 6, 4)]
+
+  for clump in clumps {
+    canvas.fillRect(clump.0, clump.1, clump.2, clump.3, fill)
+  }
+
+  let shadeRects =
+    variant == 0
+      ? [(6, 15, 7, 2), (13, 13, 8, 3), (21, 15, 5, 2)]
+      : [(4, 16, 6, 2), (12, 13, 7, 3), (21, 15, 6, 2)]
+  for rect in shadeRects {
+    canvas.fillRect(rect.0, rect.1, rect.2, rect.3, shade)
+  }
+
+  let highlightRects =
+    variant == 0
+      ? [(7, 12, 4, 2), (14, 10, 5, 2), (21, 12, 3, 2)]
+      : [(5, 13, 3, 2), (13, 11, 4, 2), (22, 13, 4, 2)]
+  for rect in highlightRects {
+    canvas.fillRect(rect.0, rect.1, rect.2, rect.3, highlight)
+  }
+
+  canvas.fillRect(12, 18, 2, 3, soilDark)
+  canvas.fillRect(17, 18, 2, 3, soilDark)
+  canvas.line(4, 18, 27, 18, ink)
+  return canvas
+}
+
+func drawTreeSprite(variant: Int = 0) -> Canvas {
+  var canvas = Canvas(width: 40, height: 56)
+  let fill = variant == 0 ? nearGreen : mix(grass, nearGreen, amount: 0.5)
+  let shade = variant == 0 ? grassDark : nearGreen
+  let highlight = variant == 0 ? grassLight : mossLight
+  let trunkX = variant == 0 ? 17 : 18
+
+  canvas.fillRect(trunkX, 35, 5, 18, soil)
+  canvas.fillRect(trunkX, 35, 2, 18, soilDark)
+  canvas.fillRect(trunkX + 2, 35, 1, 16, soilLight)
+  canvas.line(trunkX, 35, trunkX, 52, ink)
+  canvas.line(trunkX + 4, 35, trunkX + 4, 52, ink)
+
+  let layers =
+    variant == 0
+      ? [(15, 6, 10, 7), (11, 13, 18, 8), (8, 20, 24, 8), (6, 28, 28, 7)]
+      : [(16, 7, 8, 6), (12, 14, 16, 8), (9, 22, 22, 8), (7, 30, 26, 7)]
+  for layer in layers {
+    canvas.fillRect(layer.0, layer.1, layer.2, layer.3, fill)
+  }
+
+  let shadeRects =
+    variant == 0
+      ? [(13, 17, 12, 3), (10, 24, 18, 3), (9, 31, 20, 2)]
+      : [(13, 18, 10, 3), (11, 26, 16, 3), (10, 33, 18, 2)]
+  for rect in shadeRects {
+    canvas.fillRect(rect.0, rect.1, rect.2, rect.3, shade)
+  }
+
+  let highlightRects =
+    variant == 0
+      ? [(17, 8, 4, 2), (14, 15, 6, 2), (12, 22, 8, 2)]
+      : [(18, 9, 3, 2), (14, 16, 5, 2), (12, 24, 7, 2)]
+  for rect in highlightRects {
+    canvas.fillRect(rect.0, rect.1, rect.2, rect.3, highlight)
+  }
+
+  canvas.line(15, 12, 24, 12, ink)
+  canvas.line(11, 20, 28, 20, ink)
+  canvas.line(8, 28, 31, 28, ink)
+  canvas.line(7, 35, 32, 35, ink)
+  canvas.fillRect(10, 47, 20, 3, shade)
   return canvas
 }
 
@@ -839,35 +1466,17 @@ let fileManager = FileManager.default
 let workingDirectory = URL(fileURLWithPath: fileManager.currentDirectoryPath)
 let assetsURL = workingDirectory.appendingPathComponent("assets", isDirectory: true)
 
-try save(drawFloorTopTile(), named: "tile-floor-top.png", under: assetsURL)
-try save(drawFloorBaseTile(), named: "tile-floor-base.png", under: assetsURL)
+try save(drawFloorTopTile(variant: 0), named: "tile-floor-top.png", under: assetsURL)
+try save(drawFloorTopTile(variant: 1), named: "tile-floor-top-2.png", under: assetsURL)
+try save(drawFloorTopTile(variant: 2), named: "tile-floor-top-3.png", under: assetsURL)
+try save(drawFloorBaseTile(variant: 0), named: "tile-floor-base.png", under: assetsURL)
+try save(drawFloorBaseTile(variant: 1), named: "tile-floor-base-2.png", under: assetsURL)
+try save(drawFloorBaseTile(variant: 2), named: "tile-floor-base-3.png", under: assetsURL)
 try save(drawGroundTransition(), named: "ground-transition.png", under: assetsURL)
 try save(drawObstacleTile(), named: "tile-obstacle.png", under: assetsURL)
 try save(drawSkyBackdrop(), named: "bg-sky.png", under: assetsURL)
-try save(
-  drawParallaxLayer(
-    fill: farGreen,
-    shade: skyMist,
-    highlight: mossLight,
-    baseHeight: 52,
-    waves: [(8, 1, 0.2), (4, 2, 1.3), (2, 4, 0.8)],
-    detailStride: 28
-  ),
-  named: "bg-parallax-far.png",
-  under: assetsURL
-)
-try save(
-  drawParallaxLayer(
-    fill: midGreen,
-    shade: farGreen,
-    highlight: grassLight,
-    baseHeight: 58,
-    waves: [(10, 1, 1.2), (5, 3, 0.4), (3, 5, 1.9)],
-    detailStride: 18
-  ),
-  named: "bg-parallax-mid.png",
-  under: assetsURL
-)
+try save(drawFarParallaxLayer(), named: "bg-parallax-far.png", under: assetsURL)
+try save(drawMidParallaxLayer(), named: "bg-parallax-mid.png", under: assetsURL)
 try save(
   drawParallaxLayer(
     fill: nearGreen,
@@ -882,6 +1491,10 @@ try save(
 )
 try save(drawStormCloud(), named: "outage-cloud.png", under: assetsURL)
 try save(drawGoodCloud(), named: "good-cloud.png", under: assetsURL)
+try save(drawShrubSprite(variant: 0), named: "foliage-shrub-1.png", under: assetsURL)
+try save(drawShrubSprite(variant: 1), named: "foliage-shrub-2.png", under: assetsURL)
+try save(drawTreeSprite(variant: 0), named: "foliage-tree-1.png", under: assetsURL)
+try save(drawTreeSprite(variant: 1), named: "foliage-tree-2.png", under: assetsURL)
 try save(drawFireballSprite(), named: "fireball-sprite.png", under: assetsURL)
 try save(drawBugWalkerSprite(), named: "bug-walker-sprite.png", under: assetsURL)
 try save(drawDeadBug(), named: "bug-walker-dead.png", under: assetsURL)

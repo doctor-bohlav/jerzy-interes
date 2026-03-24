@@ -8,11 +8,10 @@ const MIN_OBSTACLE_GAP = 12;
 const MAX_OBSTACLE_GAP = 20;
 const START_OBSTACLE_GAP_MIN = 18;
 const START_OBSTACLE_GAP_MAX = 26;
-const END_OBSTACLE_GAP_MIN = 8;
-const END_OBSTACLE_GAP_MAX = 12;
+const END_OBSTACLE_GAP_MIN = 7;
+const END_OBSTACLE_GAP_MAX = 11;
 const START_SPEED = 320;
-const MAX_SPEED = 560;
-const SPEED_RAMP = 90;
+const MAX_SPEED = START_SPEED * 2;
 const CLIENTS_PER_PIXEL = 0.68;
 const BUG_WIDTH = TILE_SIZE * 0.9;
 const BUG_HEIGHT = TILE_SIZE * 0.7;
@@ -27,12 +26,12 @@ const STOMP_APPROACH_HEIGHT = BUG_HEIGHT * 1.12;
 const STOMP_VERTICAL_OVERLAP_LIMIT = BUG_HEIGHT * 1.02;
 const STOMP_HORIZONTAL_TOLERANCE = BUG_WIDTH * 0.12;
 const STOMP_AIRBORNE_BUFFER = 2;
-const BUG_ANIMATION_FRAME_WIDTH = 24;
-const BUG_ANIMATION_FRAME_HEIGHT = 18;
 const BUG_ANIMATION_FRAMES = 4;
 const BUG_ANIMATION_SPEED_MS = 120;
-const BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.05;
-const DEAD_BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.02;
+const BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.14;
+const DEAD_BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.08;
+const OBSTACLE_GROUND_SINK = TILE_SIZE * 0.14;
+const FLOOR_TOP_EDGE_HEIGHT = 2;
 const PLAYER_DEATH_FRAME_WIDTH = 32;
 const PLAYER_DEATH_FRAME_HEIGHT = 32;
 const PLAYER_DEATH_FRAMES = 4;
@@ -41,9 +40,9 @@ const PLAYER_DEATH_INPUT_LOCK_MS = 2000;
 const OUTAGE_WIDTH = TILE_SIZE * 2.55;
 const OUTAGE_HEIGHT = TILE_SIZE * 1.3;
 const OUTAGE_VERTICAL_OFFSET = TILE_SIZE * 1.35;
-const OUTAGE_MIN_WORLD_GAP = TILE_SIZE * 8.5;
-const OUTAGE_SPAWN_CHECK_MIN = 2.1;
-const OUTAGE_SPAWN_CHECK_MAX = 5.3;
+const OUTAGE_MIN_WORLD_GAP = TILE_SIZE * 7.1;
+const OUTAGE_SPAWN_CHECK_MIN = 1.8;
+const OUTAGE_SPAWN_CHECK_MAX = 4.6;
 const OUTAGE_DROP_INTERVAL_MIN = 0.65;
 const OUTAGE_DROP_INTERVAL_MAX = 1.3;
 const FIREBALL_FRAME_WIDTH = 16;
@@ -59,13 +58,22 @@ const FIREBALL_DRIFT_SPEED_MAX = 180;
 const FIREBALL_IMPACT_EFFECT_MS = 260;
 const FIREBALL_IMPACT_RADIUS = TILE_SIZE * 1.15;
 const FIREBALL_IMPACT_GROUND_CLEARANCE = TILE_SIZE * 0.72;
-const GROUND_TRANSITION_HEIGHT = TILE_SIZE;
-const GROUND_TRANSITION_OVERLAP = TILE_SIZE * 0.75;
 const PARALLAX_GAP_SCALE = 0.75;
+const PARALLAX_BASELINE_GAP = 48;
+const FOREGROUND_FOLIAGE_SPACING = TILE_SIZE * 7.75;
+const FOREGROUND_FOLIAGE_JITTER = TILE_SIZE * 1.44;
+const FOREGROUND_FOLIAGE_SPAWN_CHANCE = 0.24;
+const FOREGROUND_TREE_BASE_WIDTH = 40;
+const FOREGROUND_TREE_BASE_HEIGHT = 56;
+const FOREGROUND_FOLIAGE_SCALE_MULTIPLIER = 3;
+const FOREGROUND_TREE_WIDTH_MULTIPLIER = 2;
+const FOREGROUND_TREE_HEIGHT_MULTIPLIER = 1.5;
+const FOREGROUND_TREE_LIFT_RATIO = 0.02;
+const FOREGROUND_TREE_GROUND_SINK = TILE_SIZE * 0.26;
 const HIGH_SCORE_STORAGE_KEY = "jerzy-interes-high-score";
 const GOOD_CLOUD_WIDTH = TILE_SIZE * 2.45;
 const GOOD_CLOUD_HEIGHT = TILE_SIZE * 1.22;
-const GOOD_CLOUD_VERTICAL_OFFSET = TILE_SIZE * 1.12;
+const GOOD_CLOUD_VERTICAL_OFFSET = TILE_SIZE * 1.4784;
 const GOOD_CLOUD_MIN_WORLD_GAP = TILE_SIZE * 15;
 const GOOD_CLOUD_SPAWN_CHECK_MIN = 5.4;
 const GOOD_CLOUD_SPAWN_CHECK_MAX = 9.2;
@@ -113,8 +121,7 @@ const hud = document.querySelector(".hud");
 const controls = document.querySelector(".controls");
 
 const tileImages = {
-  floorTop: new Image(),
-  floorBase: new Image(),
+  floorTop: [new Image(), new Image(), new Image()],
   obstacle: new Image(),
 };
 const bugImages = {
@@ -128,11 +135,18 @@ const outageImages = {
 const supportImages = {
   sky: new Image(),
   goodCloud: new Image(),
-  groundTransition: new Image(),
+};
+const foliageImages = {
+  trees: [new Image(), new Image(), new Image(), new Image()],
 };
 
-tileImages.floorTop.src = "assets/tile-floor-top.png";
-tileImages.floorBase.src = "assets/tile-floor-base.png";
+[
+  "assets/tile-floor-top.png",
+  "assets/tile-floor-top-2.png",
+  "assets/tile-floor-top-3.png",
+].forEach((src, index) => {
+  tileImages.floorTop[index].src = src;
+});
 tileImages.obstacle.src = "assets/tile-obstacle.png";
 bugImages.alive.src = "assets/bug-walker-sprite.png";
 bugImages.dead.src = "assets/bug-walker-dead.png";
@@ -140,7 +154,14 @@ outageImages.cloud.src = "assets/outage-cloud.png";
 outageImages.fireball.src = "assets/fireball-sprite.png";
 supportImages.sky.src = "assets/bg-sky.png";
 supportImages.goodCloud.src = "assets/good-cloud.png";
-supportImages.groundTransition.src = "assets/ground-transition.png";
+[
+  "assets/foliage-tree-1.png",
+  "assets/foliage-tree-2.png",
+  "assets/foliage-tree-3.png",
+  "assets/foliage-tree-4.png",
+].forEach((src, index) => {
+  foliageImages.trees[index].src = src;
+});
 
 const playerSprite = new Image();
 const playerDeathSprite = new Image();
@@ -151,8 +172,7 @@ const playerFrames = {
   run: [0, 1, 2],
   jump: 3,
 };
-const spriteFrameWidth = 32;
-const spriteFrameHeight = 32;
+const PLAYER_RUNNER_FRAME_COUNT = Math.max(...playerFrames.run, playerFrames.jump) + 1;
 const MOBILE_LAYOUT_BREAKPOINT = 720;
 const MIN_MOBILE_PLAY_AREA_HEIGHT = 220;
 const deliveryOptionsPath = "assets/delivery-options.json";
@@ -186,34 +206,39 @@ let clientFeedbackOptions = [...defaultClientFeedbackOptions];
 
 const backgroundLayers = [
   {
+    id: "far",
     image: new Image(),
     src: "assets/bg-parallax-far.png",
     speed: 0.12,
     height: 150,
+    widthMode: "screen",
     bottomGap: 130,
-    floorOverlap: 0,
+    floorOverlap: -7.5,
     fallback: "rgba(145, 173, 191, 0.4)",
   },
   {
+    id: "mid",
     image: new Image(),
     src: "assets/bg-parallax-mid.png",
     speed: 0.22,
     height: 146,
-    bottomGap: 92,
-    floorOverlap: 0,
+    bottomGap: PARALLAX_BASELINE_GAP,
+    floorOverlap: 14.6,
     fallback: "rgba(92, 119, 120, 0.5)",
   },
   {
+    id: "near",
     image: new Image(),
     src: "assets/bg-parallax-near.png",
     speed: 0.36,
     height: 132,
-    bottomGap: 48,
-    floorOverlap: TILE_SIZE * 0.16,
+    bottomGap: PARALLAX_BASELINE_GAP,
+    floorOverlap: 20,
     fallback: "rgba(72, 102, 58, 0.65)",
   },
 ];
-const BASE_PARALLAX_BOTTOM_GAP = Math.min(...backgroundLayers.map((layer) => layer.bottomGap ?? 0));
+const BASE_PARALLAX_BOTTOM_GAP = PARALLAX_BASELINE_GAP;
+const nearBackgroundLayer = backgroundLayers.find((layer) => layer.id === "near") || null;
 const obstaclePatterns = [
   {
     cells: [1],
@@ -293,9 +318,8 @@ const state = {
 };
 
 const worldTop = () => canvas.height - WORLD_ROWS * TILE_SIZE;
-const groundRow = () => WORLD_ROWS - 2;
+const groundRow = () => WORLD_ROWS - 1;
 const groundSurfaceY = () => worldTop() + groundRow() * TILE_SIZE;
-const backgroundStartY = () => groundSurfaceY() - GROUND_TRANSITION_HEIGHT;
 const playerBaseY = () => groundSurfaceY() - state.player.height;
 
 function drawRoundedRect(x, y, width, height, radius) {
@@ -324,12 +348,35 @@ function getTileRect(columnIndex, rowIndex) {
   };
 }
 
+function getObstacleRect(columnIndex, rowIndex) {
+  const tile = getTileRect(columnIndex, rowIndex);
+  return {
+    ...tile,
+    y: Math.round(tile.y + OBSTACLE_GROUND_SINK),
+  };
+}
+
 function getCellType(cell) {
   if (!cell) {
     return null;
   }
 
   return typeof cell === "string" ? cell : cell.type;
+}
+
+function getTileImage(tileType, columnIndex, rowIndex) {
+  if (tileType === "obstacle") {
+    return tileImages.obstacle;
+  }
+
+  const variants = tileImages[tileType];
+  if (!Array.isArray(variants) || variants.length === 0) {
+    return null;
+  }
+
+  const worldColumnIndex = state.worldColumnOffset + columnIndex;
+  const variantIndex = Math.abs(worldColumnIndex * 17 + rowIndex * 29) % variants.length;
+  return variants[variantIndex];
 }
 
 function randomItem(items) {
@@ -380,6 +427,11 @@ function getDifficultyProgress(progress = getProgressRatio()) {
 
 function lerp(start, end, amount) {
   return start + (end - start) * amount;
+}
+
+function seededNoise(seed) {
+  const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453123;
+  return value - Math.floor(value);
 }
 
 function getObstacleGapRange(progress = getProgressRatio()) {
@@ -490,7 +542,7 @@ function maybeSpawnOutage(delta) {
   const progress = getProgressRatio();
   scheduleNextOutageCheck(progress);
 
-  if (Math.random() > 0.16 + progress * 0.52) {
+  if (Math.random() > 0.24 + progress * 0.6) {
     return;
   }
 
@@ -528,10 +580,6 @@ function createEmptyColumn() {
   return Array.from({ length: WORLD_ROWS }, (_, row) => {
     if (row === groundRow()) {
       return "floorTop";
-    }
-
-    if (row > groundRow()) {
-      return "floorBase";
     }
 
     return null;
@@ -616,8 +664,8 @@ function resetGame() {
     kicker: "Tap or press Space",
     title: isCompactMobileViewport() ? "Start the run" : "Start the migration run",
     text: isCompactMobileViewport()
-      ? "Jump over blockers and migrate 19,500 clients to the new IB George Business."
-      : "Jump over blockers and help migrate 19,500 clients to the new IB George Business.",
+      ? "Jump over blockers and migrate 19,500 clients to the new George Business."
+      : "Jump over blockers and help migrate 19,500 clients to the new George Business.",
     button: "Start",
   });
 }
@@ -914,7 +962,7 @@ function winGame() {
     title: isCompactMobileViewport() ? "Target reached" : "Migration milestone completed",
     text: isCompactMobileViewport()
       ? `All 19,500 clients migrated. Best: ${state.highScore.toLocaleString("en-US")}.`
-      : `All 19,500 clients have made it to the new IB George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
+      : `All 19,500 clients have made it to the new George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
     button: "Play again",
   });
 }
@@ -932,7 +980,7 @@ function update(delta) {
     return;
   }
 
-  state.speed = Math.min(MAX_SPEED, START_SPEED + state.distance / SPEED_RAMP);
+  state.speed = lerp(START_SPEED, MAX_SPEED, getProgressRatio());
   state.distance += state.speed * delta * CLIENTS_PER_PIXEL;
   syncHighScore();
   updateHud();
@@ -1037,7 +1085,7 @@ function detectCollision() {
         continue;
       }
 
-      const tile = getTileRect(col, row);
+      const tile = getObstacleRect(col, row);
       const tileLeft = tile.x + TILE_SIZE * 0.15;
       const tileRight = tile.x + TILE_SIZE * 0.85;
       const tileTop = tile.y + TILE_SIZE * 0.08;
@@ -1074,9 +1122,11 @@ function getBugHeight(bug) {
 
 function getBugRect(bug) {
   const height = getBugHeight(bug);
+  const groundSink =
+    bug.state === "dead" ? DEAD_BUG_RENDER_GROUND_SINK : BUG_RENDER_GROUND_SINK;
   return {
     x: bug.worldX - state.worldScroll,
-    y: groundSurfaceY() - height,
+    y: groundSurfaceY() - height + groundSink,
     width: BUG_WIDTH,
     height,
   };
@@ -1305,11 +1355,8 @@ function drawBackdropBase() {
 }
 
 function drawRepeatingBackgroundLayer(layer) {
+  const { drawHeight, drawY } = getParallaxLayerMetrics(layer);
   const image = layer.image;
-  const drawHeight = layer.height;
-  const bottomGap = Math.max(0, (layer.bottomGap ?? 0) - BASE_PARALLAX_BOTTOM_GAP) * PARALLAX_GAP_SCALE;
-  const floorOverlap = layer.floorOverlap ?? 0;
-  const drawY = groundSurfaceY() + floorOverlap - bottomGap - drawHeight;
 
   if (!(image.complete && image.naturalWidth > 0)) {
     ctx.fillStyle = layer.fallback;
@@ -1318,7 +1365,7 @@ function drawRepeatingBackgroundLayer(layer) {
   }
 
   const scale = drawHeight / image.naturalHeight;
-  const drawWidth = image.naturalWidth * scale;
+  const drawWidth = layer.widthMode === "screen" ? canvas.width : image.naturalWidth * scale;
   const offset = (state.worldScroll * layer.speed) % drawWidth;
 
   for (
@@ -1330,9 +1377,118 @@ function drawRepeatingBackgroundLayer(layer) {
   }
 }
 
+function getParallaxLayerMetrics(layer) {
+  const drawHeight = layer.height;
+  const bottomGap =
+    Math.max(0, (layer.bottomGap ?? 0) - BASE_PARALLAX_BOTTOM_GAP) * PARALLAX_GAP_SCALE;
+  const floorOverlap = layer.floorOverlap ?? 0;
+
+  return {
+    drawHeight,
+    drawY: groundSurfaceY() + floorOverlap - bottomGap - drawHeight,
+  };
+}
+
 function drawParallaxLayers() {
   for (const layer of backgroundLayers) {
     drawRepeatingBackgroundLayer(layer);
+  }
+}
+
+function drawFallbackFoliage(drawX, drawY, drawWidth, drawHeight, isTree) {
+  if (isTree) {
+    const trunkWidth = Math.max(4, Math.round(drawWidth * 0.18));
+    const trunkX = Math.round(drawX + drawWidth * 0.5 - trunkWidth / 2);
+    const trunkHeight = Math.max(8, Math.round(drawHeight * 0.34));
+    ctx.fillStyle = "#5d4730";
+    ctx.fillRect(trunkX, drawY + drawHeight - trunkHeight, trunkWidth, trunkHeight);
+
+    ctx.fillStyle = "#496547";
+    ctx.fillRect(drawX + Math.round(drawWidth * 0.16), drawY + Math.round(drawHeight * 0.08), Math.round(drawWidth * 0.68), Math.round(drawHeight * 0.24));
+    ctx.fillRect(drawX + Math.round(drawWidth * 0.08), drawY + Math.round(drawHeight * 0.28), Math.round(drawWidth * 0.84), Math.round(drawHeight * 0.22));
+    ctx.fillRect(drawX + Math.round(drawWidth * 0.18), drawY + Math.round(drawHeight * 0.48), Math.round(drawWidth * 0.64), Math.round(drawHeight * 0.18));
+    return;
+  }
+
+  ctx.fillStyle = "#57724f";
+  ctx.fillRect(drawX + Math.round(drawWidth * 0.1), drawY + Math.round(drawHeight * 0.38), Math.round(drawWidth * 0.8), Math.round(drawHeight * 0.42));
+  ctx.fillRect(drawX, drawY + Math.round(drawHeight * 0.52), Math.round(drawWidth * 0.38), Math.round(drawHeight * 0.22));
+  ctx.fillRect(drawX + Math.round(drawWidth * 0.6), drawY + Math.round(drawHeight * 0.5), Math.round(drawWidth * 0.32), Math.round(drawHeight * 0.2));
+}
+
+function drawForegroundTree(image, drawX, drawY, drawWidth, drawHeight, shouldMirror) {
+  if (shouldMirror) {
+    ctx.save();
+    ctx.translate(drawX + drawWidth, 0);
+    ctx.scale(-1, 1);
+
+    if (image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, 0, drawY, drawWidth, drawHeight);
+    } else {
+      drawFallbackFoliage(0, drawY, drawWidth, drawHeight, true);
+    }
+
+    ctx.restore();
+    return;
+  }
+
+  if (image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+  } else {
+    drawFallbackFoliage(drawX, drawY, drawWidth, drawHeight, true);
+  }
+}
+
+function drawForegroundFoliage() {
+  if (!nearBackgroundLayer) {
+    return;
+  }
+
+  const { drawY: nearLayerY, drawHeight: nearLayerHeight } =
+    getParallaxLayerMetrics(nearBackgroundLayer);
+  const layerScroll = state.worldScroll * nearBackgroundLayer.speed;
+  const treeBaseY = nearLayerY + nearLayerHeight * 0.72;
+  const firstAnchor = Math.floor((layerScroll - FOREGROUND_FOLIAGE_SPACING) / FOREGROUND_FOLIAGE_SPACING);
+  const lastAnchor = Math.ceil(
+    (layerScroll + canvas.width + FOREGROUND_FOLIAGE_SPACING) / FOREGROUND_FOLIAGE_SPACING
+  );
+
+  for (let anchor = firstAnchor; anchor <= lastAnchor; anchor += 1) {
+    if (anchor < 0) {
+      continue;
+    }
+
+    const seed = anchor + 1;
+    if (seededNoise(seed * 0.91) > FOREGROUND_FOLIAGE_SPAWN_CHANCE) {
+      continue;
+    }
+
+    const variants = foliageImages.trees;
+    const variantIndex = Math.abs(anchor) % variants.length;
+    const logicalWidth = FOREGROUND_TREE_BASE_WIDTH;
+    const logicalHeight = FOREGROUND_TREE_BASE_HEIGHT;
+    const image = variants[variantIndex];
+    const anchorX =
+      anchor * FOREGROUND_FOLIAGE_SPACING +
+      (seededNoise(seed * 3.11) - 0.5) * FOREGROUND_FOLIAGE_JITTER;
+    const scale = FOREGROUND_FOLIAGE_SCALE_MULTIPLIER;
+    const drawWidth = Math.round(
+      logicalWidth * scale * FOREGROUND_TREE_WIDTH_MULTIPLIER
+    );
+    const drawHeight = Math.round(
+      logicalHeight * scale * FOREGROUND_TREE_HEIGHT_MULTIPLIER
+    );
+    const groundSink = FOREGROUND_TREE_GROUND_SINK * FOREGROUND_FOLIAGE_SCALE_MULTIPLIER;
+    const verticalLift = drawHeight * FOREGROUND_TREE_LIFT_RATIO;
+    const shouldMirror = seededNoise(seed * 5.23) < 0.5;
+    const drawX = Math.round(anchorX - layerScroll - drawWidth / 2);
+    const drawY = Math.round(treeBaseY - drawHeight + groundSink - verticalLift);
+
+    if (drawX + drawWidth < -TILE_SIZE || drawX > canvas.width + TILE_SIZE) {
+      continue;
+    }
+
+    drawForegroundTree(image, drawX, drawY, drawWidth, drawHeight, shouldMirror);
   }
 }
 
@@ -1351,8 +1507,8 @@ function drawForegroundBackdropLayer() {
 
 function drawBackdrop() {
   drawBackdropBase();
-  drawGroundTransition();
   drawParallaxLayers();
+  drawForegroundFoliage();
   drawForegroundBackdropLayer();
 }
 
@@ -1412,31 +1568,28 @@ function drawGoodClouds() {
   }
 }
 
-function drawGroundTransition() {
-  const drawY = backgroundStartY() - GROUND_TRANSITION_OVERLAP;
-  const drawHeight = groundSurfaceY() - drawY;
-  const transitionOverlay = supportImages.groundTransition;
+function drawTileCell(tileType, col, row) {
+  const tile = tileType === "obstacle" ? getObstacleRect(col, row) : getTileRect(col, row);
+  const image = getTileImage(tileType, col, row);
+  const isGroundTile = tileType === "floorTop";
+  const drawWidth = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
+  const drawHeight = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
 
-  if (!(transitionOverlay.complete && transitionOverlay.naturalWidth > 0)) {
-    const fallbackGradient = ctx.createLinearGradient(0, drawY, 0, drawY + drawHeight);
-    fallbackGradient.addColorStop(0, "rgba(144, 170, 111, 0.96)");
-    fallbackGradient.addColorStop(0.55, "rgba(112, 142, 82, 0.98)");
-    fallbackGradient.addColorStop(1, "rgba(85, 111, 63, 1)");
-    ctx.fillStyle = fallbackGradient;
-    ctx.fillRect(0, drawY, canvas.width, drawHeight);
-    return;
+  if (image.complete && image.naturalWidth > 0) {
+    ctx.drawImage(image, tile.x, tile.y, drawWidth, drawHeight);
+  } else {
+    ctx.fillStyle = tileType === "obstacle" ? "#8d3b2f" : "#7ca95d";
+    ctx.fillRect(tile.x, tile.y, drawWidth, drawHeight);
   }
+}
 
-  const scale = drawHeight / transitionOverlay.naturalHeight;
-  const drawWidth = transitionOverlay.naturalWidth * scale;
-  const offset = state.worldScroll % drawWidth;
+function drawGroundTopEdge() {
+  const lineY = Math.round(groundSurfaceY());
+  ctx.fillStyle = "#000000";
 
-  for (
-    let drawX = -offset - drawWidth;
-    drawX < canvas.width + drawWidth;
-    drawX += drawWidth
-  ) {
-    ctx.drawImage(transitionOverlay, drawX, drawY, drawWidth, drawHeight);
+  for (let col = 0; col < state.columns.length; col += 1) {
+    const tile = getTileRect(col, groundRow());
+    ctx.fillRect(tile.x, lineY, TILE_SIZE + 1, FLOOR_TOP_EDGE_HEIGHT);
   }
 }
 
@@ -1445,26 +1598,25 @@ function drawTiles() {
     const column = state.columns[col];
     for (let row = 0; row < column.length; row += 1) {
       const tileType = getCellType(column[row]);
-      if (!tileType) {
+      if (!tileType || tileType !== "floorTop") {
         continue;
       }
 
-      const tile = getTileRect(col, row);
-      const image = tileImages[tileType];
-      const isGroundTile = tileType === "floorTop" || tileType === "floorBase";
-      const drawWidth = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
-      const drawHeight = isGroundTile ? TILE_SIZE + 1 : TILE_SIZE;
-      if (image.complete && image.naturalWidth > 0) {
-        ctx.drawImage(image, tile.x, tile.y, drawWidth, drawHeight);
-      } else {
-        ctx.fillStyle =
-          tileType === "obstacle"
-            ? "#8d3b2f"
-            : tileType === "floorTop"
-              ? "#7ca95d"
-              : "#587447";
-        ctx.fillRect(tile.x, tile.y, drawWidth, drawHeight);
+      drawTileCell(tileType, col, row);
+    }
+  }
+
+  drawGroundTopEdge();
+
+  for (let col = 0; col < state.columns.length; col += 1) {
+    const column = state.columns[col];
+    for (let row = 0; row < column.length; row += 1) {
+      const tileType = getCellType(column[row]);
+      if (!tileType || tileType === "floorTop") {
+        continue;
       }
+
+      drawTileCell(tileType, col, row);
     }
   }
 }
@@ -1545,9 +1697,7 @@ function drawBugs() {
     }
 
     const image = bug.state === "dead" ? bugImages.dead : bugImages.alive;
-    const renderGroundSink =
-      bug.state === "alive" ? BUG_RENDER_GROUND_SINK : DEAD_BUG_RENDER_GROUND_SINK;
-    const renderY = rect.y + renderGroundSink;
+    const renderY = rect.y;
     const shadowWidth = rect.width * (bug.state === "alive" ? 0.34 : 0.24);
     const shadowHeight = bug.state === "alive" ? 5 : 3;
 
@@ -1571,15 +1721,20 @@ function drawBugs() {
           ? Math.floor((performance.now() + bug.worldX * 5) / BUG_ANIMATION_SPEED_MS) %
             BUG_ANIMATION_FRAMES
           : 0;
+      const frameWidth =
+        bug.state === "alive"
+          ? Math.floor(image.naturalWidth / BUG_ANIMATION_FRAMES)
+          : image.naturalWidth;
+      const frameHeight = image.naturalHeight;
       if (bug.state === "alive" && bug.direction < 0) {
         ctx.translate(rect.x + rect.width / 2, renderY + rect.height / 2);
         ctx.scale(-1, 1);
         ctx.drawImage(
           image,
-          frameIndex * BUG_ANIMATION_FRAME_WIDTH,
+          frameIndex * frameWidth,
           0,
-          BUG_ANIMATION_FRAME_WIDTH,
-          BUG_ANIMATION_FRAME_HEIGHT,
+          frameWidth,
+          frameHeight,
           -rect.width / 2,
           -rect.height / 2,
           rect.width,
@@ -1588,10 +1743,10 @@ function drawBugs() {
       } else if (bug.state === "alive") {
         ctx.drawImage(
           image,
-          frameIndex * BUG_ANIMATION_FRAME_WIDTH,
+          frameIndex * frameWidth,
           0,
-          BUG_ANIMATION_FRAME_WIDTH,
-          BUG_ANIMATION_FRAME_HEIGHT,
+          frameWidth,
+          frameHeight,
           rect.x,
           renderY,
           rect.width,
@@ -1805,7 +1960,7 @@ function drawObstacleBubbles() {
         continue;
       }
 
-      const tile = getTileRect(col, row);
+      const tile = getObstacleRect(col, row);
       if (tile.x + tile.width < 0 || tile.x > canvas.width) {
         continue;
       }
@@ -1929,15 +2084,23 @@ function drawPlayer() {
   const frameIndex = grounded ? runFrame : playerFrames.jump;
 
   if (playerSprite.complete && playerSprite.naturalWidth > 0) {
+    const frameStartX = Math.round(
+      (frameIndex * playerSprite.naturalWidth) / PLAYER_RUNNER_FRAME_COUNT
+    );
+    const frameEndX = Math.round(
+      ((frameIndex + 1) * playerSprite.naturalWidth) / PLAYER_RUNNER_FRAME_COUNT
+    );
+    const frameWidth = frameEndX - frameStartX;
+    const frameHeight = playerSprite.naturalHeight;
     ctx.save();
     ctx.translate(drawX + drawWidth / 2, drawY + drawHeight / 2);
     ctx.rotate(grounded ? 0 : Math.max(-0.08, Math.min(0.08, velocityY / 2500)));
     ctx.drawImage(
       playerSprite,
-      frameIndex * spriteFrameWidth,
+      frameStartX,
       0,
-      spriteFrameWidth,
-      spriteFrameHeight,
+      frameWidth,
+      frameHeight,
       -drawWidth / 2,
       -drawHeight / 2,
       drawWidth,
