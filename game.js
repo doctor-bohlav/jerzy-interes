@@ -610,13 +610,16 @@ function resetGame() {
     hidden: false,
     kicker: "Tap or press Space",
     title: "Start the migration run",
-    text: "Jump over blockers and help migrate 19,500 clients to the new IB George Business.",
+    text: isCompactMobileViewport()
+      ? "Jump over blockers and migrate 19,500 clients to the new IB George Business."
+      : "Jump over blockers and help migrate 19,500 clients to the new IB George Business.",
     button: "Start",
   });
 }
 
 function setOverlay({ hidden, kicker, title, text, button }) {
   overlay.hidden = hidden;
+  gameShell?.classList.toggle("overlay-active", !hidden);
   overlayKicker.textContent = kicker;
   overlayTitle.textContent = title;
   overlayText.textContent = text;
@@ -631,6 +634,10 @@ function randomInt(min, max) {
 
 function randomFloat(min, max) {
   return Math.random() * (max - min) + min;
+}
+
+function isCompactMobileViewport() {
+  return window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT && window.innerHeight > window.innerWidth;
 }
 
 function syncPlayAreaToViewport() {
@@ -858,6 +865,8 @@ function syncActionButtonState(now = performance.now()) {
 
 function failGame(cause = "generic") {
   const defeat = getDefeatConfig(cause);
+  const migratedClients = Math.floor(state.distance).toLocaleString("en-US");
+  const bestRun = state.highScore.toLocaleString("en-US");
   state.phase = "lost";
   state.player.deathStartedAt = performance.now();
   syncHighScore();
@@ -866,7 +875,9 @@ function failGame(cause = "generic") {
     hidden: false,
     kicker: defeat.kicker,
     title: defeat.title,
-    text: `${defeat.summary}. You migrated ${Math.floor(state.distance).toLocaleString("en-US")} clients. Best run: ${state.highScore.toLocaleString("en-US")}. Try again and push toward 19,500.`,
+    text: isCompactMobileViewport()
+      ? `${defeat.summary}. Migrated: ${migratedClients}. Best: ${bestRun}.`
+      : `${defeat.summary}. You migrated ${migratedClients} clients. Best run: ${bestRun}. Try again and push toward 19,500.`,
     button: "Restart",
   });
 }
@@ -880,7 +891,9 @@ function winGame() {
     hidden: false,
     kicker: "Target reached",
     title: "Migration milestone completed",
-    text: `All 19,500 clients have made it to the new IB George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
+    text: isCompactMobileViewport()
+      ? `All 19,500 clients migrated. Best: ${state.highScore.toLocaleString("en-US")}.`
+      : `All 19,500 clients have made it to the new IB George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
     button: "Play again",
   });
 }
