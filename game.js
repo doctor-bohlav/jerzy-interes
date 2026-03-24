@@ -102,6 +102,7 @@ const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const actionButton = document.getElementById("actionButton");
 const playArea = document.querySelector(".play-area");
+const overlayCard = overlay?.querySelector(".overlay-card");
 const appShell = document.querySelector(".app");
 const gameShell = document.querySelector(".game-shell");
 const hud = document.querySelector(".hud");
@@ -621,6 +622,7 @@ function setOverlay({ hidden, kicker, title, text, button }) {
   overlayText.textContent = text;
   actionButton.textContent = button;
   syncActionButtonState();
+  window.requestAnimationFrame(syncPlayAreaToViewport);
 }
 
 function randomInt(min, max) {
@@ -657,12 +659,18 @@ function syncPlayAreaToViewport() {
     controls.offsetHeight -
     rowGap * 2;
   const aspectHeight = availableWidth * 9 / 16;
+  const overlayPadding = parseFloat(window.getComputedStyle(overlay).paddingTop) || 0;
+  const overlayHeightTarget =
+    !overlay.hidden && overlayCard
+      ? overlayCard.scrollHeight + overlayPadding * 2
+      : 0;
   const minimumHeight = Math.min(
     MIN_MOBILE_PLAY_AREA_HEIGHT,
     Math.max(0, Math.floor(availableHeight))
   );
+  const preferredHeight = Math.max(aspectHeight, overlayHeightTarget);
   const fittedHeight = Math.floor(
-    Math.max(minimumHeight, Math.min(availableHeight, aspectHeight))
+    Math.max(minimumHeight, Math.min(availableHeight, preferredHeight))
   );
 
   playArea.style.height = `${fittedHeight}px`;
