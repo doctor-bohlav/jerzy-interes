@@ -31,6 +31,8 @@ const BUG_ANIMATION_FRAME_WIDTH = 24;
 const BUG_ANIMATION_FRAME_HEIGHT = 18;
 const BUG_ANIMATION_FRAMES = 4;
 const BUG_ANIMATION_SPEED_MS = 120;
+const BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.05;
+const DEAD_BUG_RENDER_GROUND_SINK = TILE_SIZE * 0.02;
 const PLAYER_DEATH_FRAME_WIDTH = 32;
 const PLAYER_DEATH_FRAME_HEIGHT = 32;
 const PLAYER_DEATH_FRAMES = 4;
@@ -290,7 +292,7 @@ const state = {
   },
 };
 
-const worldTop = () => canvas.height - WORLD_ROWS * TILE_SIZE - TILE_SIZE;
+const worldTop = () => canvas.height - WORLD_ROWS * TILE_SIZE;
 const groundRow = () => WORLD_ROWS - 2;
 const groundSurfaceY = () => worldTop() + groundRow() * TILE_SIZE;
 const backgroundStartY = () => groundSurfaceY() - GROUND_TRANSITION_HEIGHT;
@@ -1535,10 +1537,24 @@ function drawBugs() {
     }
 
     const image = bug.state === "dead" ? bugImages.dead : bugImages.alive;
-    const bobOffset =
-      bug.state === "alive"
-        ? Math.sin(performance.now() / 130 + bug.worldX / 45) * 1.5
-        : 0;
+    const renderGroundSink =
+      bug.state === "alive" ? BUG_RENDER_GROUND_SINK : DEAD_BUG_RENDER_GROUND_SINK;
+    const renderY = rect.y + renderGroundSink;
+    const shadowWidth = rect.width * (bug.state === "alive" ? 0.34 : 0.24);
+    const shadowHeight = bug.state === "alive" ? 5 : 3;
+
+    ctx.fillStyle = "rgba(0, 0, 0, 0.16)";
+    ctx.beginPath();
+    ctx.ellipse(
+      rect.x + rect.width / 2,
+      groundSurfaceY() + 3,
+      shadowWidth,
+      shadowHeight,
+      0,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
 
     if (image.complete && image.naturalWidth > 0) {
       ctx.save();
@@ -1548,7 +1564,7 @@ function drawBugs() {
             BUG_ANIMATION_FRAMES
           : 0;
       if (bug.state === "alive" && bug.direction < 0) {
-        ctx.translate(rect.x + rect.width / 2, rect.y + rect.height / 2 + bobOffset);
+        ctx.translate(rect.x + rect.width / 2, renderY + rect.height / 2);
         ctx.scale(-1, 1);
         ctx.drawImage(
           image,
@@ -1569,17 +1585,17 @@ function drawBugs() {
           BUG_ANIMATION_FRAME_WIDTH,
           BUG_ANIMATION_FRAME_HEIGHT,
           rect.x,
-          rect.y + bobOffset,
+          renderY,
           rect.width,
           rect.height
         );
       } else {
-        ctx.drawImage(image, rect.x, rect.y + bobOffset, rect.width, rect.height);
+        ctx.drawImage(image, rect.x, renderY, rect.width, rect.height);
       }
       ctx.restore();
     } else {
       ctx.fillStyle = bug.state === "alive" ? "#7b4621" : "#8d7047";
-      ctx.fillRect(rect.x, rect.y + bobOffset, rect.width, rect.height);
+      ctx.fillRect(rect.x, renderY, rect.width, rect.height);
     }
   }
 }
@@ -2045,6 +2061,22 @@ function handlePrimaryAction(event) {
 window.addEventListener("keydown", handlePrimaryAction);
 window.addEventListener("resize", syncPlayAreaToViewport);
 window.visualViewport?.addEventListener("resize", syncPlayAreaToViewport);
+gameShell?.addEventListener("selectstart", (event) => {
+  event.preventDefault();
+});
+gameShell?.addEventListener("dragstart", (event) => {
+  event.preventDefault();
+});
+gameShell?.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+window.addEventListener(
+  "gesturestart",
+  (event) => {
+    event.preventDefault();
+  },
+  { passive: false }
+);
 playArea.addEventListener("pointerdown", (event) => {
   if (event.target === actionButton) {
     return;
