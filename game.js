@@ -641,8 +641,12 @@ function randomFloat(min, max) {
   return Math.random() * (max - min) + min;
 }
 
+function isMobileViewport() {
+  return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
+}
+
 function isCompactMobileViewport() {
-  return window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT && window.innerHeight > window.innerWidth;
+  return isMobileViewport() && window.innerHeight > window.innerWidth;
 }
 
 function syncPlayAreaToViewport() {
@@ -650,7 +654,7 @@ function syncPlayAreaToViewport() {
     return;
   }
 
-  if (window.innerWidth > MOBILE_LAYOUT_BREAKPOINT) {
+  if (!isMobileViewport()) {
     playArea.style.removeProperty("height");
     return;
   }
@@ -676,8 +680,12 @@ function syncPlayAreaToViewport() {
     !overlay.hidden && overlayCard
       ? overlayCard.scrollHeight + overlayPadding * 2
       : 0;
+  const minimumPlayAreaHeight =
+    window.innerWidth > window.innerHeight
+      ? Math.floor(MIN_MOBILE_PLAY_AREA_HEIGHT * 0.72)
+      : MIN_MOBILE_PLAY_AREA_HEIGHT;
   const minimumHeight = Math.min(
-    MIN_MOBILE_PLAY_AREA_HEIGHT,
+    minimumPlayAreaHeight,
     Math.max(0, Math.floor(availableHeight))
   );
   const preferredHeight = Math.max(aspectHeight, overlayHeightTarget);
