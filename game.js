@@ -693,8 +693,12 @@ function isMobileViewport() {
   return window.matchMedia("(pointer: coarse)").matches || window.innerWidth <= MOBILE_LAYOUT_BREAKPOINT;
 }
 
+function isLandscapeMobileViewport() {
+  return isMobileViewport() && window.innerWidth > window.innerHeight;
+}
+
 function isCompactMobileViewport() {
-  return isMobileViewport() && window.innerHeight > window.innerWidth;
+  return isMobileViewport() && !isLandscapeMobileViewport();
 }
 
 function syncPlayAreaToViewport() {
@@ -713,6 +717,13 @@ function syncPlayAreaToViewport() {
   const paddingBottom = parseFloat(appStyles.paddingBottom) || 0;
   const paddingLeft = parseFloat(appStyles.paddingLeft) || 0;
   const paddingRight = parseFloat(appStyles.paddingRight) || 0;
+
+  if (isLandscapeMobileViewport()) {
+    const shellHeight = Math.max(0, window.innerHeight - paddingTop - paddingBottom);
+    playArea.style.height = `${Math.floor(shellHeight)}px`;
+    return;
+  }
+
   const rowGap = parseFloat(shellStyles.rowGap || shellStyles.gap) || 0;
   const availableWidth = Math.max(0, window.innerWidth - paddingLeft - paddingRight);
   const availableHeight =

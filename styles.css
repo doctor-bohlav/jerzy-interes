@@ -294,3 +294,97 @@ button {
     font-size: 0.88rem;
   }
 }
+
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 640px) {
+  .app {
+    padding: 6px;
+  }
+
+  .game-shell {
+    width: 100%;
+    height: calc(100dvh - 12px);
+    min-height: calc(100dvh - 12px);
+    gap: 8px;
+    grid-template-columns: minmax(0, 1fr) minmax(184px, 26vw);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .hud {
+    grid-column: 2;
+    grid-row: 1;
+    padding: 10px 12px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    border-radius: 18px;
+  }
+
+  .eyebrow {
+    margin-bottom: 4px;
+    font-size: 0.66rem;
+  }
+
+  h1 {
+    font-size: clamp(1.05rem, 2.6vw, 1.35rem);
+  }
+
+  .stats {
+    width: 100%;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stat-card {
+    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+
+  .stat-label {
+    margin-bottom: 4px;
+    font-size: 0.72rem;
+  }
+
+  .stat-card strong {
+    font-size: 0.96rem;
+  }
+
+  .play-area {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    height: 100%;
+    min-height: 0;
+    border-radius: 20px;
+  }
+
+  .overlay {
+    padding: 10px;
+  }
+
+  .overlay-card {
+    width: min(100%, 320px);
+    max-height: calc(100% - 2px);
+    padding: 14px 12px;
+    border-radius: 18px;
+  }
+
+  .overlay-card h2 {
+    font-size: clamp(1.05rem, 3.2vw, 1.4rem);
+  }
+
+  .overlay-card p {
+    margin-bottom: 12px;
+    font-size: 0.86rem;
+    line-height: 1.28;
+  }
+
+  .controls {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: end;
+    padding: 8px 10px;
+    border-radius: 16px;
+    font-size: 0.78rem;
+  }
+}
