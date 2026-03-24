@@ -102,6 +102,10 @@ const overlayTitle = document.getElementById("overlayTitle");
 const overlayText = document.getElementById("overlayText");
 const actionButton = document.getElementById("actionButton");
 const playArea = document.querySelector(".play-area");
+const appShell = document.querySelector(".app");
+const gameShell = document.querySelector(".game-shell");
+const hud = document.querySelector(".hud");
+const controls = document.querySelector(".controls");
 
 const tileImages = {
   floorTop: new Image(),
@@ -144,6 +148,8 @@ const playerFrames = {
 };
 const spriteFrameWidth = 32;
 const spriteFrameHeight = 32;
+const MOBILE_LAYOUT_BREAKPOINT = 720;
+const MIN_MOBILE_PLAY_AREA_HEIGHT = 220;
 const deliveryOptionsPath = "assets/delivery-options.json";
 const outageReasonsPath = "assets/outage-reasons.json";
 const clientFeedbackPath = "assets/client-feedback.json";
@@ -620,6 +626,43 @@ function randomInt(min, max) {
 
 function randomFloat(min, max) {
   return Math.random() * (max - min) + min;
+}
+
+function syncPlayAreaToViewport() {
+  if (!playArea || !appShell || !gameShell || !hud || !controls) {
+    return;
+  }
+
+  if (window.innerWidth > MOBILE_LAYOUT_BREAKPOINT) {
+    playArea.style.removeProperty("height");
+    return;
+  }
+
+  const appStyles = window.getComputedStyle(appShell);
+  const shellStyles = window.getComputedStyle(gameShell);
+  const paddingTop = parseFloat(appStyles.paddingTop) || 0;
+  const paddingBottom = parseFloat(appStyles.paddingBottom) || 0;
+  const paddingLeft = parseFloat(appStyles.paddingLeft) || 0;
+  const paddingRight = parseFloat(appStyles.paddingRight) || 0;
+  const rowGap = parseFloat(shellStyles.rowGap || shellStyles.gap) || 0;
+  const availableWidth = Math.max(0, window.innerWidth - paddingLeft - paddingRight);
+  const availableHeight =
+    window.innerHeight -
+    paddingTop -
+    paddingBottom -
+    hud.offsetHeight -
+    controls.offsetHeight -
+    rowGap * 2;
+  const aspectHeight = availableWidth * 9 / 16;
+  const minimumHeight = Math.min(
+    MIN_MOBILE_PLAY_AREA_HEIGHT,
+    Math.max(0, Math.floor(availableHeight))
+  );
+  const fittedHeight = Math.floor(
+    Math.max(minimumHeight, Math.min(availableHeight, aspectHeight))
+  );
+
+  playArea.style.height = `${fittedHeight}px`;
 }
 
 function loadHighScore() {
@@ -1937,6 +1980,8 @@ function handlePrimaryAction(event) {
 }
 
 window.addEventListener("keydown", handlePrimaryAction);
+window.addEventListener("resize", syncPlayAreaToViewport);
+window.visualViewport?.addEventListener("resize", syncPlayAreaToViewport);
 playArea.addEventListener("pointerdown", (event) => {
   if (event.target === actionButton) {
     return;
@@ -1966,6 +2011,7 @@ async function initializeGame() {
   ]);
   state.highScore = loadHighScore();
   resetGame();
+  syncPlayAreaToViewport();
   requestAnimationFrame(loop);
 }
 
