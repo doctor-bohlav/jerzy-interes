@@ -186,6 +186,7 @@ const backgroundLayers = [
     speed: 0.12,
     height: 150,
     bottomGap: 130,
+    floorOverlap: 0,
     fallback: "rgba(145, 173, 191, 0.4)",
   },
   {
@@ -194,6 +195,7 @@ const backgroundLayers = [
     speed: 0.22,
     height: 146,
     bottomGap: 92,
+    floorOverlap: 0,
     fallback: "rgba(92, 119, 120, 0.5)",
   },
   {
@@ -202,6 +204,7 @@ const backgroundLayers = [
     speed: 0.36,
     height: 132,
     bottomGap: 48,
+    floorOverlap: TILE_SIZE * 0.16,
     fallback: "rgba(72, 102, 58, 0.65)",
   },
 ];
@@ -1229,7 +1232,8 @@ function drawRepeatingBackgroundLayer(layer) {
   const image = layer.image;
   const drawHeight = layer.height;
   const bottomGap = Math.max(0, (layer.bottomGap ?? 0) - BASE_PARALLAX_BOTTOM_GAP) * PARALLAX_GAP_SCALE;
-  const drawY = groundSurfaceY() - bottomGap - drawHeight;
+  const floorOverlap = layer.floorOverlap ?? 0;
+  const drawY = groundSurfaceY() + floorOverlap - bottomGap - drawHeight;
 
   if (!(image.complete && image.naturalWidth > 0)) {
     ctx.fillStyle = layer.fallback;
