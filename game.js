@@ -52,6 +52,8 @@ const FIREBALL_WIDTH = TILE_SIZE * 0.7;
 const FIREBALL_HEIGHT = TILE_SIZE * 1.05;
 const FIREBALL_FALL_SPEED_MIN = 430;
 const FIREBALL_FALL_SPEED_MAX = 580;
+const FIREBALL_DRIFT_SPEED_MIN = 80;
+const FIREBALL_DRIFT_SPEED_MAX = 180;
 const FIREBALL_IMPACT_EFFECT_MS = 260;
 const FIREBALL_IMPACT_RADIUS = TILE_SIZE * 1.15;
 const FIREBALL_IMPACT_GROUND_CLEARANCE = TILE_SIZE * 0.72;
@@ -449,8 +451,9 @@ function createOutage(progress) {
     worldX: state.worldScroll + canvas.width + randomFloat(TILE_SIZE * 1.8, TILE_SIZE * 5.2),
     y: worldTop() - OUTAGE_VERTICAL_OFFSET + randomFloat(-TILE_SIZE * 0.12, TILE_SIZE * 0.08),
     bobPhase: randomFloat(0, Math.PI * 2),
+    reason: randomItem(outageReasons),
     nextDropIn: getOutageDropInterval(progress),
-    remainingDrops: randomInt(1, progress > 0.62 ? 3 : 2),
+    remainingDrops: randomInt(2, progress > 0.62 ? 4 : 3),
   };
 }
 
@@ -609,7 +612,7 @@ function resetGame() {
   setOverlay({
     hidden: false,
     kicker: "Tap or press Space",
-    title: "Start the migration run",
+    title: isCompactMobileViewport() ? "Start the run" : "Start the migration run",
     text: isCompactMobileViewport()
       ? "Jump over blockers and migrate 19,500 clients to the new IB George Business."
       : "Jump over blockers and help migrate 19,500 clients to the new IB George Business.",
@@ -874,7 +877,15 @@ function failGame(cause = "generic") {
   setOverlay({
     hidden: false,
     kicker: defeat.kicker,
-    title: defeat.title,
+    title: isCompactMobileViewport()
+      ? cause === "blocker"
+        ? "Migration blocked"
+        : cause === "bug"
+          ? "Bug hit"
+          : cause === "outage"
+            ? "System outage"
+            : "Run ended"
+      : defeat.title,
     text: isCompactMobileViewport()
       ? `${defeat.summary}. Migrated: ${migratedClients}. Best: ${bestRun}.`
       : `${defeat.summary}. You migrated ${migratedClients} clients. Best run: ${bestRun}. Try again and push toward 19,500.`,
@@ -890,7 +901,7 @@ function winGame() {
   setOverlay({
     hidden: false,
     kicker: "Target reached",
-    title: "Migration milestone completed",
+    title: isCompactMobileViewport() ? "Target reached" : "Migration milestone completed",
     text: isCompactMobileViewport()
       ? `All 19,500 clients migrated. Best: ${state.highScore.toLocaleString("en-US")}.`
       : `All 19,500 clients have made it to the new IB George Business. Best run: ${state.highScore.toLocaleString("en-US")}. Run it again to improve your timing.`,
@@ -1074,6 +1085,15 @@ function getGoodCloudRect(goodCloud, now = performance.now()) {
   };
 }
 
+function getOutageRect(outage, now = performance.now()) {
+  return {
+    x: outage.worldX - state.worldScroll,
+    y: outage.y + Math.sin(now / 260 + outage.bobPhase) * 3.5,
+    width: OUTAGE_WIDTH,
+    height: OUTAGE_HEIGHT,
+  };
+}
+
 function cleanupGoodClouds() {
   state.goodClouds = state.goodClouds.filter(
     (goodCloud) => goodCloud.worldX + GOOD_CLOUD_WIDTH > state.worldScroll - GOOD_CLOUD_WIDTH
@@ -1115,21 +1135,45 @@ function isPlayerInFireballImpactZone(fireball) {
   );
 }
 
-function spawnFireball(outage, progress) {
+function getOutageVolleySize(progress) {
+  const maxVolley = progress > 0.72 ? 4 : 3;
+  return randomInt(2, maxVolley);
+}
+
+function spawnFireballVolley(outage, progress) {
   const horizontalPadding = OUTAGE_WIDTH * 0.2;
-  state.fireballs.push({
-    worldX: outage.worldX + randomFloat(horizontalPadding, OUTAGE_WIDTH - horizontalPadding),
-    y: outage.y + OUTAGE_HEIGHT * 0.56,
-    velocityY: randomFloat(
-      FIREBALL_FALL_SPEED_MIN,
-      FIREBALL_FALL_SPEED_MAX + progress * 70
-    ),
-    rotation: randomFloat(-0.14, 0.14),
-    spin: randomFloat(-3.2, 3.2),
-    reason: randomItem(outageReasons),
-    state: "falling",
-    impactedAt: null,
-  });
+  const volleySize = getOutageVolleySize(progress);
+
+  for (let index = 0; index < volleySize; index += 1) {
+    const spreadRatio = volleySize === 1 ? 0 : index / (volleySize - 1) - 0.5;
+    const centeredSpawnX =
+      outage.worldX + OUTAGE_WIDTH * 0.5 + spreadRatio * OUTAGE_WIDTH * 0.5;
+    const spawnX = clamp(
+      centeredSpawnX + randomFloat(-OUTAGE_WIDTH * 0.08, OUTAGE_WIDTH * 0.08),
+      outage.worldX + horizontalPadding,
+      outage.worldX + OUTAGE_WIDTH - horizontalPadding
+    );
+    const driftDirection =
+      Math.abs(spreadRatio) < 0.01 ? randomFloat(-0.28, 0.28) : Math.sign(spreadRatio);
+    const driftSpeed =
+      driftDirection *
+      randomFloat(FIREBALL_DRIFT_SPEED_MIN, FIREBALL_DRIFT_SPEED_MAX) *
+      (0.4 + Math.abs(spreadRatio) * 0.9);
+
+    state.fireballs.push({
+      worldX: spawnX,
+      y: outage.y + OUTAGE_HEIGHT * 0.56,
+      velocityX: driftSpeed,
+      velocityY: randomFloat(
+        FIREBALL_FALL_SPEED_MIN,
+        FIREBALL_FALL_SPEED_MAX + progress * 70
+      ),
+      rotation: randomFloat(-0.14, 0.14),
+      spin: randomFloat(-3.2, 3.2) + driftDirection * 0.35,
+      state: "falling",
+      impactedAt: null,
+    });
+  }
 }
 
 function cleanupOutages(now) {
@@ -1159,7 +1203,7 @@ function updateOutages(delta) {
 
     outage.nextDropIn -= delta;
     if (outage.nextDropIn <= 0) {
-      spawnFireball(outage, progress);
+      spawnFireballVolley(outage, progress);
       outage.remainingDrops -= 1;
       outage.nextDropIn = getOutageDropInterval(progress);
     }
@@ -1171,6 +1215,7 @@ function updateOutages(delta) {
       continue;
     }
 
+    fireball.worldX += fireball.velocityX * delta;
     fireball.y += fireball.velocityY * delta;
     fireball.rotation += fireball.spin * delta;
 
@@ -1305,24 +1350,21 @@ function drawOutageClouds() {
   const now = performance.now();
 
   for (const outage of state.outages) {
-    const drawX = outage.worldX - state.worldScroll;
-    if (drawX + OUTAGE_WIDTH < -OUTAGE_WIDTH || drawX > canvas.width + OUTAGE_WIDTH) {
+    const rect = getOutageRect(outage, now);
+    if (rect.x + rect.width < -rect.width || rect.x > canvas.width + rect.width) {
       continue;
     }
 
-    const bobOffset = Math.sin(now / 260 + outage.bobPhase) * 3.5;
-    const drawY = outage.y + bobOffset;
-
     if (outageImages.cloud.complete && outageImages.cloud.naturalWidth > 0) {
-      ctx.drawImage(outageImages.cloud, drawX, drawY, OUTAGE_WIDTH, OUTAGE_HEIGHT);
+      ctx.drawImage(outageImages.cloud, rect.x, rect.y, rect.width, rect.height);
     } else {
       ctx.fillStyle = "#564f58";
       ctx.beginPath();
       ctx.ellipse(
-        drawX + OUTAGE_WIDTH * 0.5,
-        drawY + OUTAGE_HEIGHT * 0.45,
-        OUTAGE_WIDTH * 0.42,
-        OUTAGE_HEIGHT * 0.32,
+        rect.x + rect.width * 0.5,
+        rect.y + rect.height * 0.45,
+        rect.width * 0.42,
+        rect.height * 0.32,
         0,
         0,
         Math.PI * 2
@@ -1663,8 +1705,9 @@ function drawGoodCloudFeedbackBubbles() {
   ctx.restore();
 }
 
-function drawFireballReasonBubbles() {
+function drawOutageReasonBubbles() {
   ctx.save();
+  const now = performance.now();
   const fontSize = 15;
   const lineHeight = 18;
   const paddingX = 16;
@@ -1674,41 +1717,36 @@ function drawFireballReasonBubbles() {
   ctx.textBaseline = "top";
   ctx.textAlign = "left";
 
-  for (const fireball of state.fireballs) {
-    if (fireball.state !== "falling" || !fireball.reason) {
+  for (const outage of state.outages) {
+    if (!outage.reason) {
       continue;
     }
 
-    const anchorX = fireball.worldX - state.worldScroll;
-    if (anchorX + FIREBALL_WIDTH < 0 || anchorX > canvas.width) {
+    const rect = getOutageRect(outage, now);
+    if (rect.x + rect.width < 0 || rect.x > canvas.width) {
       continue;
     }
 
-    const lines = fitBubbleLines(fireball.reason, maxTextWidth, 3);
+    const lines = fitBubbleLines(outage.reason, maxTextWidth, 3);
     const contentWidth = lines.reduce(
       (max, line) => Math.max(max, ctx.measureText(line).width),
       92
     );
     const bubbleWidth = Math.max(136, contentWidth + paddingX * 2);
     const bubbleHeight = lines.length * lineHeight + paddingY * 2;
-    const bubbleX = clamp(anchorX - bubbleWidth / 2, 8, canvas.width - bubbleWidth - 8);
-    const bubbleY = Math.max(8, fireball.y - bubbleHeight - 28);
-    const tailX = clamp(anchorX, bubbleX + 16, bubbleX + bubbleWidth - 16);
+    const preferredBubbleX = rect.x + rect.width + 12;
+    const bubbleX =
+      preferredBubbleX + bubbleWidth <= canvas.width - 8
+        ? preferredBubbleX
+        : Math.max(8, rect.x - bubbleWidth - 12);
+    const bubbleY = clamp(
+      rect.y + rect.height * 0.08,
+      8,
+      canvas.height - bubbleHeight - 8
+    );
 
     ctx.fillStyle = "rgba(255, 245, 232, 0.96)";
     drawRoundedRect(bubbleX, bubbleY, bubbleWidth, bubbleHeight, 12);
-    ctx.fill();
-
-    ctx.strokeStyle = "#5d4330";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = "rgba(255, 245, 232, 0.96)";
-    ctx.beginPath();
-    ctx.moveTo(tailX - 10, bubbleY + bubbleHeight - 2);
-    ctx.lineTo(tailX + 10, bubbleY + bubbleHeight - 2);
-    ctx.lineTo(tailX, bubbleY + bubbleHeight + 12);
-    ctx.closePath();
     ctx.fill();
 
     ctx.strokeStyle = "#5d4330";
@@ -1957,7 +1995,7 @@ function draw() {
   drawBugs();
   drawFireballs();
   drawGoodCloudFeedbackBubbles();
-  drawFireballReasonBubbles();
+  drawOutageReasonBubbles();
   drawObstacleBubbles();
   drawPlayer();
   drawImmunityStatus();
